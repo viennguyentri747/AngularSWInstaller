@@ -55,6 +55,9 @@
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
+            "options": {
+                "proxyConfig": "custom_proxy_config.json"
+            },
           "configurations": {
             "production": {
               "buildTarget": "ng_sw_installer:build:production"

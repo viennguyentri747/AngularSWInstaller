@@ -21,7 +21,6 @@ export class AppComponent {
     selectedUploadFile: File | null = null;
     is_uploading: boolean = false;
     uploadProgress: number = 0;  // This will store the progress percentage
-    uploadComplete: boolean = false;  // This flag checks if the upload is complete
     // fileName: string = '';  // Store the filename after upload
 
     files: string[] = [];
@@ -31,7 +30,7 @@ export class AppComponent {
     }
 
     onFileSelected(event: any): void {
-        this.uploadComplete = false;  // Reset the completion flag on new file selection
+        this.uploadProgress = 0; //reset progress
         this.selectedUploadFile = event.target.files[0]; //single file selection
         console.log(`Selected filename: ${this.selectedUploadFile?.name}`)
     }

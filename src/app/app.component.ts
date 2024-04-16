@@ -19,6 +19,7 @@ export class AppComponent {
     title = 'ng_sw_installer';
     selectedInstallFile: File | null = null;
     selectedUploadFile: File | null = null;
+    is_uploading: boolean = false;
     uploadProgress: number = 0;  // This will store the progress percentage
     uploadComplete: boolean = false;  // This flag checks if the upload is complete
     // fileName: string = '';  // Store the filename after upload
@@ -36,6 +37,8 @@ export class AppComponent {
     }
 
     uploadFile(): void {
+        // TODO HANDLE INTERRUPT
+        this.is_uploading = true;
         if (this.selectedUploadFile) {
             this.dataService.uploadFile(this.selectedUploadFile)
                 .subscribe(event => {
@@ -52,10 +55,11 @@ export class AppComponent {
     }
 
     onFinishUploaded() {
-        this.uploadComplete = true;
+        this.is_uploading = false;
         this.selectedUploadFile = null;
         this.clearUploadInputView()
         this.reloadFiles();
+
     }
 
     clearUploadInputView() {

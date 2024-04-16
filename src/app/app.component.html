@@ -1,20 +1,20 @@
 <!-- src/app/app.component.html -->
 <div style="text-align:center; margin-top:50px;">
     <input type="file" (change)="onFileSelected($event)" #fileUploadInput>
-    <br>
-    <button (click)="uploadFile()" *ngIf="selectedUploadFile && !uploadComplete"> Upload</button>
+    <button (click)="uploadFile()" *ngIf="selectedUploadFile && !is_uploading"> Upload</button>
 
     <br><br>
 
-    <div *ngIf="selectedUploadFile && !uploadComplete && uploadProgress > 0 && uploadProgress < 100"
-        style="position: relative; width: 50%; margin: auto; height: 20px; background-color: #ddd;">
+    <div style="position: relative; width: 50%; margin: auto; height: 20px; background-color: #ddd;">
         <div style="position: absolute; left: 0; top: 0; height: 100%; background-color: #4CAF50;"
             [style.width.%]="uploadProgress"></div>
         <div style="position: absolute; width: 100%; text-align: center; line-height: 20px;">
             {{ uploadProgress }}%
         </div>
     </div>
-    <p *ngIf="selectedUploadFile && uploadComplete">Upload Complete!</p>
+
+    <br>
+    <p *ngIf="(selectedUploadFile && uploadProgress == 100)">Upload Complete!</p>
     <p *ngIf="selectedUploadFile">
         File Name: {{ selectedUploadFile.name }}<br>
         File Size: {{ selectedUploadFile.size }} bytes

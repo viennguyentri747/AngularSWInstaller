@@ -5,7 +5,6 @@ import { RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { DataService } from './data.service';
 import { FormsModule } from '@angular/forms'; //for working with 2-way data binding ...
-
 @Component({
     selector: 'app-root',
     standalone: true,
@@ -29,17 +28,37 @@ export class AppComponent {
         this.reloadFiles();
     }
 
-    onFileSelected(event: any): void {
-        this.uploadProgress = 0; //reset progress
-        this.selectedUploadFile = event.target.files[0]; //single file selection
-        console.log(`Selected filename: ${this.selectedUploadFile?.name}`)
+    onFileSelected(event: Event): void {
+        const inputElement = (event.target as HTMLInputElement)
+        if (inputElement && inputElement.files) {
+            const file = inputElement.files[0];
+            if (file) {
+                this.calculateChecksum(file).then(hash => {
+                    console.log('File hash:', hash);
+                    this.dataService.checkFileExists(hash).subscribe(isExists => {
+                        if (!isExists) {
+                            this.selectedUploadFile = file;
+                        } else {
+                            alert('File already exists.');
+                        }
+                    });
+                });
+            }
+        }
     }
 
-    uploadFile(): void {
+    private async calculateChecksum(file: File): Promise<string> {
+        const buffer = await file.arrayBuffer();
+        const digest = await crypto.subtle.digest('SHA-256', buffer);
+        return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    public uploadSelectedFile(): void {
         // TODO HANDLE INTERRUPT
         this.is_uploading = true;
-        if (this.selectedUploadFile) {
-            this.dataService.uploadFile(this.selectedUploadFile)
+        const file: File | null = this.selectedUploadFile;
+        if (file) {
+            this.dataService.uploadFile(file)
                 .subscribe(event => {
                     if (event.type === HttpEventType.UploadProgress) {
                         if (event.total) {
@@ -53,7 +72,7 @@ export class AppComponent {
         }
     }
 
-    onFinishUploaded() {
+    private onFinishUploaded(): void {
         this.is_uploading = false;
         this.selectedUploadFile = null;
         this.clearUploadInputView()
@@ -61,11 +80,11 @@ export class AppComponent {
 
     }
 
-    clearUploadInputView() {
+    private clearUploadInputView(): void {
         this.fileUploadInputRef.nativeElement.value = "";
     }
 
-    reloadFiles() {
+    private reloadFiles(): void {
         this.dataService.getFiles().subscribe({
             next: (data) => this.files = data,
             error: (err) => {
@@ -75,7 +94,7 @@ export class AppComponent {
         });
     }
 
-    installFile() {
+    public installFile(): void {
         if (!this.selectedInstallFile) {
             alert('No file selected!');
             return;

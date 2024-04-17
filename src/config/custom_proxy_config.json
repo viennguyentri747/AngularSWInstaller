@@ -1,4 +1,9 @@
 {
+  "/check_file_exist": {
+    "target": "http://localhost:3000",
+    "secure": false,
+    "changeOrigin": true
+  },
   "/upload_file": {
     "target": "http://localhost:3000",
     "secure": false,

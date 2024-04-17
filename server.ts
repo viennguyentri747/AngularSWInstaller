@@ -4,18 +4,14 @@ import bodyParser from 'body-parser';
 import path from 'path';
 import fs from 'fs';
 import { CONFIG } from '@config/common_config';
+import crypto from 'crypto'; // Include crypto module for hashing
+import { FileExistenceResponse } from 'src/common/common-model';
+
 
 const app: express.Application = express();
 const port: number = 3000;
-
-// Middleware
-app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'src')));
-
-// Check if the uploads directory exists, and create it if it doesn’t
-const uploadsDir: string = path.join(__dirname, CONFIG.storagePaths.upload);
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
+interface CheckSumHashTable {
+    [key: string]: boolean;
 }
 
 // Multer config for file upload
@@ -31,10 +27,49 @@ const storage: multer.StorageEngine = multer.diskStorage({
 });
 const upload: multer.Multer = multer({ storage: storage });
 
+let existingHashes: CheckSumHashTable = {};  // This now explicitly tells TypeScript the structure of existingHashes
+
+// Middleware
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, 'src')));
+
+// Check if the uploads directory exists, and create it if it doesn’t
+const uploadsDir: string = path.join(__dirname, CONFIG.storagePaths.upload);
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Read all files and calculate their hashes on startup
+fs.readdir(uploadsDir, async (err, files) => {
+    if (err) {
+        return console.error("Failed to list directory", err);
+    }
+    for (let file of files) {
+        const filePath = path.join(uploadsDir, file);
+        const fileHash = await calculateHash(filePath);
+        existingHashes[fileHash] = true;
+    }
+});
+
+app.post(CONFIG.apiPaths.checkFileExistsUrl, (req, res) => {
+    const { hash } = req.body;
+
+    //Sanity check
+    if (typeof hash !== 'string' || !/^[a-f0-9]{64}$/i.test(hash)) {
+        return res.status(400).json({ error: "Invalid hash format" });
+    }
+
+    const fileExists = existingHashes[hash] === true;
+    return res.status(200).json({ exists: fileExists } as FileExistenceResponse);
+});
+
 // Routes
-app.post(CONFIG.apiPaths.uploadFileUrl, upload.single('file'), (req, res) => {
-    //response with json path
-    res.json({ message: `File uploaded successfully: ${req.file?.path}` });
+app.post(CONFIG.apiPaths.uploadFileUrl, upload.single('file'), async (req, res) => {
+    if (req.file) {
+        const fileHash = await calculateHash(req.file.path);
+        existingHashes[fileHash] = true; // Update hash table with new file's hash
+        res.json({ message: `File uploaded successfully: ${req.file.path}` });
+    }
 });
 
 app.get(CONFIG.apiPaths.readFilesUrl, (req: express.Request, res: express.Response) => {
@@ -75,3 +110,14 @@ app.get('*', (req: express.Request, res: express.Response) => {
 app.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`);
 });
+
+// Function to calculate hash of file content
+function calculateHash(filePath: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const hash = crypto.createHash('sha256');
+        const stream = fs.createReadStream(filePath);
+        stream.on('error', err => reject(err));
+        stream.on('data', chunk => hash.update(chunk));
+        stream.on('end', () => resolve(hash.digest('hex')));
+    });
+}

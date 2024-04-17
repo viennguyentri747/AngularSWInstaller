@@ -23,7 +23,7 @@
                 <strong>File Name:</strong> {{ selectedUploadFile.name }}<br>
                 <strong>File Size:</strong> {{ selectedUploadFile.size }} bytes
             </p>
-            <button class="btn btn-primary" (click)="uploadFile()"
+            <button class="btn btn-primary" (click)="uploadSelectedFile()"
                 *ngIf="selectedUploadFile && !is_uploading">Upload</button>
 
             <select class="custom-select mt-2" [(ngModel)]="selectedInstallFile">

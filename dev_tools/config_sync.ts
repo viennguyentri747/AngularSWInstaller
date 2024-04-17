@@ -1,14 +1,26 @@
 import { CONFIG } from '@config/common_config'
 import fs from 'fs';
 
-const proxyConfig = Object.values(CONFIG.apiPaths).reduce((acc, url) => ({
-    ...acc,
-    ...createProxyConfig(url)
-}), {})
 
-fs.writeFileSync('./src/config/custom_proxy_config.json', JSON.stringify(proxyConfig, null, 2));
+syncProxyConfig('./src/config/custom_proxy_config.json')
 
-function createProxyConfig(url: any) {
+function syncProxyConfig(cfg_path: string): void {
+    try {
+        const proxyConfig = Object.values(CONFIG.apiPaths).reduce((acc: object, url: string) => ({
+            ...acc,
+            ...createProxyConfig(url)
+        }), {});
+
+        fs.writeFileSync(cfg_path, JSON.stringify(proxyConfig, null, 2));
+
+        console.log(`Proxy configuration has been successfully written to \`${cfg_path}\`.`);
+    } catch (error) {
+        // Catch and log any errors that occur during the execution
+        console.error("Error writing proxy configuration:", error);
+    }
+}
+
+function createProxyConfig(url: string): object {
     return {
         [url]: {
             "target": "http://localhost:3000",

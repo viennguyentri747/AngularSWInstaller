@@ -10,21 +10,20 @@
             <ul class="nav nav-tabs" id="fileTab" role="tablist">
                 <li class="nav-item">
                     <!-- Angular handles the class switch and click event -->
-                    <a [ngClass]="currentTab == 'existing' ? 'nav-link active' : 'nav-link'" id="existing-tab"
-                        role="tab" (click)="onSelectTab('existing')">From Existing Files</a>
+                    <a [ngClass]="currentTab == 'existing' ? 'nav-link active' : 'nav-link'"
+                        (click)="onSelectInstallSourceTab('existing')">From Existing Files</a>
                 </li>
                 <li class="nav-item">
                     <!-- Angular handles the class switch and click event -->
-                    <a [ngClass]="currentTab == 'computer' ? 'nav-link active' : 'nav-link'" id="computer-tab"
-                        role="tab" (click)="onSelectTab('computer')">From My Computer</a>
+                    <a [ngClass]="currentTab == 'computer' ? 'nav-link active' : 'nav-link'"
+                        (click)="onSelectInstallSourceTab('computer')">From My Computer</a>
                 </li>
             </ul>
 
             <!-- Tab Content -->
             <div class="tab-content" id="myTabContent">
                 <!-- From Existing Files content -->
-                <div [ngClass]="currentTab == 'existing' ? 'tab-pane fade show active' : 'tab-pane fade'" id="existing"
-                    role="tabpanel" aria-labelledby="existing-tab">
+                <div [ngClass]="currentTab == 'existing' ? 'tab-pane fade show active' : 'tab-pane fade'">
 
                     <!-- Check if there are files available -->
                     <div *ngIf="files.length > 0; else noFilesTemplate">
@@ -32,9 +31,8 @@
                         <select id="existingFiles" class="custom-select" [(ngModel)]="selectedInstallFile">
                             <option *ngFor="let file of files" [value]="file">{{ file }}</option>
                         </select>
-                        <button class="btn btn-secondary mt-2" (click)="installFile()">Install</button>
                     </div>
-                    
+
                     <!-- Template to display when no files are available -->
                     <ng-template #noFilesTemplate>
                         <div class="alert alert-secondary mt-3" style="padding: 20px; text-align: center;">
@@ -46,8 +44,7 @@
                 </div>
 
                 <!-- From Computer content -->
-                <div [ngClass]="currentTab == 'computer' ? 'tab-pane fade show active' : 'tab-pane fade'" id="computer"
-                    role="tabpanel" aria-labelledby="computer-tab">
+                <div [ngClass]="currentTab == 'computer' ? 'tab-pane fade show active' : 'tab-pane fade'" id="computer">
                     <input type="file" class="form-control-file mt-3" (change)="onFileSelected($event)"
                         #fileUploadInput>
 
@@ -55,7 +52,7 @@
                         <strong>File Name:</strong> {{ selectedUploadFile.name }}<br>
                         <strong>File Size:</strong> {{ selectedUploadFile.size | fileSize }}
                     </p>
-                    
+
                     <button class="btn btn-primary mt-2" (click)="uploadSelectedFile()"
                         *ngIf="selectedUploadFile && !is_uploading">Upload</button>
                     <div class="progress mt-2" *ngIf="uploadProgress > 0 && uploadProgress < 100">
@@ -63,9 +60,9 @@
                             role="progressbar" [style.width.%]="uploadProgress" aria-valuemin="0" aria-valuemax="100">
                         </div>
                     </div>
-                    <p *ngIf="uploadProgress == 100" class="text-success">Upload Complete! File ready for installation.
+                    <p *ngIf="uploadProgress == 100" class="text-success">Upload Complete! File {{ selectedInstallFile
+                        }} ready for installation.
                     </p>
-                    
                 </div>
             </div>
         </div>

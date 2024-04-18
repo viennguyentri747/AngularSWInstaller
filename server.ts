@@ -22,12 +22,14 @@ const storage: multer.StorageEngine = multer.diskStorage({
     },
     // A string or function that determines file name
     filename: function (req: express.Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) {
-        cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname))
+        // cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname))
+        cb(null, file.originalname)  // Use original file name
     }
 });
 const upload: multer.Multer = multer({ storage: storage });
 
 let existingHashes: CheckSumHashTable = {};  // This now explicitly tells TypeScript the structure of existingHashes
+let availableUts: Array<string> = ["192.168.100.64", "192.168.100.65"];
 
 // Middleware
 app.use(bodyParser.json());
@@ -51,7 +53,8 @@ fs.readdir(uploadsDir, async (err, files) => {
     }
 });
 
-app.post(CONFIG.apiPaths.checkFileExistsUrl, (req, res) => {
+// Check files exists request
+app.post(CONFIG.apiPaths.checkFileExists, (req, res) => {
     const { hash } = req.body;
 
     //Sanity check
@@ -63,8 +66,8 @@ app.post(CONFIG.apiPaths.checkFileExistsUrl, (req, res) => {
     return res.status(200).json({ exists: fileExists } as FileExistenceResponse);
 });
 
-// Routes
-app.post(CONFIG.apiPaths.uploadFileUrl, upload.single('file'), async (req, res) => {
+// Upload files request
+app.post(CONFIG.apiPaths.uploadFile, upload.single('file'), async (req, res) => {
     if (req.file) {
         const fileHash = await calculateHash(req.file.path);
         existingHashes[fileHash] = true; // Update hash table with new file's hash
@@ -72,18 +75,25 @@ app.post(CONFIG.apiPaths.uploadFileUrl, upload.single('file'), async (req, res) 
     }
 });
 
-app.get(CONFIG.apiPaths.readFilesUrl, (req: express.Request, res: express.Response) => {
-    fs.readdir(uploadsDir, (err: NodeJS.ErrnoException | null, files: string[]) => {
+// Get files request
+app.get(CONFIG.apiPaths.getExistingFileNames, (req: express.Request, res: express.Response) => {
+    fs.readdir(uploadsDir, (err: NodeJS.ErrnoException | null, file_names: string[]) => {
+        console.log(file_names.length)
         if (err) {
-            console.log(err);
             res.status(500).send('Error retrieving file list');
             return;
         }
-        res.json(files);
+
+        return res.json(file_names);
     });
 });
 
-app.post(CONFIG.apiPaths.installFileUrl, (req, res) => {
+// Get available uts
+app.get(CONFIG.apiPaths.getAvailableUts, (req: express.Request, res: express.Response) => {
+    return res.json(availableUts)
+});
+
+app.post(CONFIG.apiPaths.installFile, (req, res) => {
     const { filename } = req.body;
     const sourcePath = path.join(uploadsDir, filename);
     // const destinationPath = path.join(installDir, filename);

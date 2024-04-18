@@ -26,10 +26,11 @@
                 <div [ngClass]="currentTab == 'existing' ? 'tab-pane fade show active' : 'tab-pane fade'">
 
                     <!-- Check if there are files available -->
-                    <div *ngIf="files.length > 0; else noFilesTemplate">
+                    <div *ngIf="existingFileNames.length > 0; else noFilesTemplate">
                         <label for="existingFiles" class="form-label mt-3">Choose an existing file:</label>
-                        <select id="existingFiles" class="custom-select" [(ngModel)]="selectedInstallFile">
-                            <option *ngFor="let file of files" [value]="file">{{ file }}</option>
+                        <select id="existingFiles" class="custom-select" [(ngModel)]="selectedInstallFile"
+                            (ngModelChange)="onSelectFileForInstall(selectedInstallFile)">
+                            <option *ngFor="let file of existingFileNames" [value]="file">{{ file }}</option>
                         </select>
                     </div>
 
@@ -45,16 +46,15 @@
 
                 <!-- From Computer content -->
                 <div [ngClass]="currentTab == 'computer' ? 'tab-pane fade show active' : 'tab-pane fade'" id="computer">
-                    <input type="file" class="form-control-file mt-3" (change)="onFileSelected($event)"
+                    <input type="file" class="form-control-file mt-3" (change)="onSelectFileForUpload($event)"
                         #fileUploadInput>
 
                     <p *ngIf="selectedUploadFile" class="mt-1">
-                        <strong>File Name:</strong> {{ selectedUploadFile.name }}<br>
                         <strong>File Size:</strong> {{ selectedUploadFile.size | fileSize }}
                     </p>
 
                     <button class="btn btn-primary mt-2" (click)="uploadSelectedFile()"
-                        *ngIf="selectedUploadFile && !is_uploading">Upload</button>
+                        *ngIf="selectedUploadFile && !isUploading">Upload</button>
                     <div class="progress mt-2" *ngIf="uploadProgress > 0 && uploadProgress < 100">
                         <div class="progress-bar bg-success progress-bar-striped progress-bar-animated"
                             role="progressbar" [style.width.%]="uploadProgress" aria-valuemin="0" aria-valuemax="100">
@@ -65,6 +65,28 @@
                     </p>
                 </div>
             </div>
+
+            <div *ngIf="selectedInstallFile && availableUtIps.length > 0" class="tab-content">
+                <div class="mt-3">
+                    <strong>Chosen file:</strong> {{ selectedInstallFile }}<br>
+                </div>
+
+                <div class="mt-3">
+                    <label for="availableUts" class="form-label">Choose a UT for installation: </label>
+
+                    
+                    <select id="availableUts" class="custom-select" [(ngModel)]="selectedUtIp"
+                        (ngModelChange)="onSelectUt(selectedUtIp)">
+                        <option *ngFor="let utIp of availableUtIps" [value]="utIp">{{ utIp }}</option>
+                    </select>
+                </div>
+
+                <div class="mt-4">
+                    <button class="btn btn-primary" (click)="installFile()" *ngIf="selectedUtIp">Run Install</button>
+                </div>
+            </div>
+
+
         </div>
     </div>
 </div>

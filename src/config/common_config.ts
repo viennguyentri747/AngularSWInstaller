@@ -1,9 +1,10 @@
 export const CONFIG = {
     apiPaths: {
-        checkFileExistsUrl: "/check_file_exist",
-        uploadFileUrl: "/upload_file",
-        readFilesUrl: "/read_files",
-        installFileUrl: "/install"
+        checkFileExists: "/check_file_exist",
+        uploadFile: "/upload_file",
+        getExistingFileNames: "/read_existing_files_names",
+        getAvailableUts: "/get_uts",
+        installFile: "/install"
     },
     storagePaths:{
         upload: "storage/upload",

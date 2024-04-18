@@ -15,20 +15,35 @@ import { CommonModule } from '@angular/common';
 })
 export class AppComponent {
     @ViewChild('fileUploadInput') fileUploadInputRef!: ElementRef; //'!' to inform type script that variable will be initialized
+    existingFileNames: string[] = [];
     title = 'ng_sw_installer';
     selectedInstallFile: string | null = null;  // Changed to string to hold the file name
+    availableUtIps: string[] = [];
+    selectedUtIp: string | null = null
     selectedUploadFile: File | null = null;
-    is_uploading: boolean = false;
+    isUploading: boolean = false;
     uploadProgress: number = 0;
-    files: string[] = [];
-    currentTab: string = 'existing';  // Default tab
+    currentTab: string = 'existing';
 
 
     constructor(private dataService: DataService) {
-        this.reloadFiles();
+        this.fetchAvailableFiles();
     }
 
-    onFileSelected(event: Event): void {
+    public onSelectInstallSourceTab(tabId: string): void {
+        this.currentTab = tabId;
+        this.clearOnNewTab();
+    }
+
+    private clearOnNewTab(): void {
+        this.selectedInstallFile = null;
+        this.selectedUtIp = null;
+        this.selectedUploadFile = null;
+        this.uploadProgress = 0;
+        this.clearUploadInputView();
+    }
+
+    public onSelectFileForUpload(event: Event): void {
         const inputElement = event.target as HTMLInputElement;
         if (!inputElement.files?.length) {
             return
@@ -47,8 +62,9 @@ export class AppComponent {
         });
     }
 
+
     public uploadSelectedFile(): void {
-        this.is_uploading = true;
+        this.isUploading = true;
         if (this.selectedUploadFile) {
             this.dataService.uploadFile(this.selectedUploadFile)
                 .subscribe({
@@ -72,12 +88,10 @@ export class AppComponent {
     }
 
     private onFinishUploaded(is_success: boolean): void {
-        this.is_uploading = false;
+        this.isUploading = false;
 
         if (is_success) {
-            if (this.selectedUploadFile) {
-                this.selectedInstallFile = this.selectedUploadFile.name; // Automatically select the uploaded file
-            }
+            this.onSelectFileForInstall(this.selectedUploadFile?.name ?? null); // Automatically select the uploaded file
             this.uploadProgress = 100;
         } else {
             this.uploadProgress = 0;
@@ -85,16 +99,29 @@ export class AppComponent {
 
         this.selectedUploadFile = null;
         this.clearUploadInputView();
-        this.reloadFiles();
+        this.fetchAvailableFiles();
     }
 
     private clearUploadInputView(): void {
         this.fileUploadInputRef.nativeElement.value = "";
     }
 
-    private reloadFiles(): void {
-        this.dataService.getFiles().subscribe({
-            next: (resp) => this.files = resp,
+    private fetchAvailableFiles(): void {
+        this.dataService.getExistingFileNames().subscribe({
+            next: (resp) => this.existingFileNames = resp,
+            error: (err) => console.error('Failed to get files', err)
+        });
+    }
+
+    public onSelectFileForInstall(installFileName: string | null): void {
+        console.log(`File for install seleted: ${installFileName}`);
+        this.selectedInstallFile = installFileName
+        this.fetchAvailableUts();
+    }
+
+    private fetchAvailableUts(): void {
+        this.dataService.getAvailableUts().subscribe({
+            next: (resp) => this.availableUtIps = resp,
             error: (err) => console.error('Failed to get files', err)
         });
     }
@@ -113,8 +140,9 @@ export class AppComponent {
         });
     }
 
-    onSelectTab(tabId: string): void {
-        this.currentTab = tabId;
+    public onSelectUt(utIp: string | null): void {
+        console.log(`Ut seleted: ${utIp}`);
+        this.selectedUtIp = utIp;
     }
 
     private async calculateChecksum(file: File): Promise<string> {

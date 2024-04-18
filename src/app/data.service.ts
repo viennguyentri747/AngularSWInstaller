@@ -14,13 +14,12 @@ import { HttpEvent } from '@angular/common/http';
 export class DataService {
     constructor(private http: HttpClient) { }
 
-    public getFiles(): Observable<string[]> {
-        return this.http.get<string[]>(CONFIG.apiPaths.readFilesUrl);
+    public getExistingFileNames(): Observable<string[]> {
+        return this.http.get<string[]>(CONFIG.apiPaths.getExistingFileNames);
     }
 
-
     public checkFileExists(hash: String): Observable<boolean> {
-        return this.http.post<FileExistenceResponse>(CONFIG.apiPaths.checkFileExistsUrl, { hash }).pipe(
+        return this.http.post<FileExistenceResponse>(CONFIG.apiPaths.checkFileExists, { hash }).pipe(
             map((response: FileExistenceResponse) => {
                 console.log(response);
                 return response.exists;
@@ -31,13 +30,17 @@ export class DataService {
     public uploadFile(file: File): Observable<HttpEvent<any>> {
         const formData = new FormData();
         formData.append('file', file, file.name);
-        return this.http.post(CONFIG.apiPaths.uploadFileUrl, formData, {
+        return this.http.post(CONFIG.apiPaths.uploadFile, formData, {
             reportProgress: true,
             observe: 'events'
         });
     }
 
     public installFile(filename: string): Observable<string> {
-        return this.http.post(CONFIG.apiPaths.installFileUrl, { filename }, { responseType: 'text' });
+        return this.http.post(CONFIG.apiPaths.installFile, { filename }, { responseType: 'text' });
+    }
+
+    public getAvailableUts(): Observable<string[]> {
+        return this.http.get<string[]>(CONFIG.apiPaths.getAvailableUts);
     }
 }

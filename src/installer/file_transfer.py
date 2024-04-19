@@ -13,22 +13,30 @@ class RemoteInfo:
 
 
 def transfer_file(local_file_path: str, remote_dir_path: str, ssm_info: RemoteInfo, acu_info: RemoteInfo) -> bool:
-    ssm_client = create_ssh_client(ssm_info)
+    ssm_client = None
+    acu_channel = None
+    acu_client = None
 
     try:
+        print(f"Connecting to remote ip = {ssm_info.ip}", flush= True)
+        ssm_client = create_client_and_connect(ssm_info)
+
         # Setup the SSH tunnel
         transport = ssm_client.get_transport()
         dest_addr = (acu_info.ip, 22)  # Destination is ACU server
         local_addr = ('127.0.0.1', 2200)  # Local address
-        channel = transport.open_channel("direct-tcpip", dest_addr, local_addr)
+        print(f"Openning tunnel to acu {acu_info.ip}", flush= True)
+        acu_channel = transport.open_channel("direct-tcpip", dest_addr, local_addr, timeout=5)
 
         # Create an SSH client for the ACU server using the tunnel
         acu_client = paramiko.SSHClient()
         acu_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        acu_client.connect('127.0.0.1', port=2200, username=acu_info.username, password=acu_info.password, sock=channel)
+        print(f"Connecting to acu {acu_info.ip}")
+        acu_client.connect('127.0.0.1', port=2200, username=acu_info.username,
+                           password=acu_info.password, sock=acu_channel, timeout=5)
 
         # Use the mkdir command to create the directory if it doesn't exist
-        stdin, stdout, stderr = acu_client.exec_command(f"mkdir -p {remote_dir_path}")
+        acu_client.exec_command(f"mkdir -p {remote_dir_path}")
 
         def update_progress(filename, size, sent):
             percent_complete = float(sent) / float(size) * 100
@@ -37,7 +45,7 @@ def transfer_file(local_file_path: str, remote_dir_path: str, ssm_info: RemoteIn
 
         # SCP transfer over the established connection
         with SCPClient(acu_client.get_transport(), progress=update_progress) as scp:
-            print("Start transfer")
+            print(f"Start transfer, path = {local_file_path}")
             full_remote_path = os.path.join(remote_dir_path, os.path.basename(local_file_path))
             scp.put(local_file_path, full_remote_path)
             is_same: bool = is_same_file(acu_client, local_file_path, full_remote_path)
@@ -47,16 +55,18 @@ def transfer_file(local_file_path: str, remote_dir_path: str, ssm_info: RemoteIn
         print(f"Exception {e}")
         return False
     finally:
-        # Cleanup
-        acu_client.close()
-        ssm_client.close()
-        channel.close()
+        if (ssm_client):
+            ssm_client.close()
+        if (acu_channel):
+            acu_channel.close()
+        if (acu_client):
+            acu_client.close()
 
 
-def create_ssh_client(remote_info: RemoteInfo) -> paramiko.SSHClient:
+def create_client_and_connect(remote_info: RemoteInfo, timeout_secs: float = 5) -> paramiko.SSHClient:
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(remote_info.ip, username=remote_info.username, password=remote_info.password)
+    client.connect(remote_info.ip, username=remote_info.username, password=remote_info.password, timeout=timeout_secs)
     return client
 
 

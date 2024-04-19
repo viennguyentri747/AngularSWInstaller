@@ -6,6 +6,15 @@ export const CONFIG = {
         getAvailableUts: "/get_uts",
         installFile: "/install"
     },
+    requestObjectKeys:{
+        utIpAddress: "utIp",
+        installFileName: "installFileName"
+    },
+    serverMessageVars: {
+        errorEvent: "error",
+        completeEvent: "complete",
+        progressEvent: "progress"
+    },
     storagePaths:{
         upload: "storage/upload",
         download: "storage/download"

@@ -5,6 +5,7 @@ import traceback
 from file_transfer import *
 import time
 import requests
+import argparse
 
 
 class Installer:
@@ -110,17 +111,35 @@ class Installer:
 
 
 if __name__ == "__main__":
-    local_file_path: str = "ow_core_apps-release-master-0.9.6.1.iesa"
-    install_file_name: str = os.path.basename(local_file_path)
-    remote_file_path: str = f"/vien/install/{install_file_name}"
-    ssm_info: RemoteInfo = RemoteInfo('172.16.20.136', 'root', 'use4Tst!')
-    acu_info: RemoteInfo = RemoteInfo('192.168.100.254', 'root', 'your_password')
-    installer: Installer = Installer(ssm_info=ssm_info, acu_info=acu_info, remote_installer_path=remote_file_path)
     try:
-        # installer.open_tunnel_acu()
-        transfer_file(local_file_path=local_file_path, remote_dir_path=remote_file_path,
-                      ssm_info=ssm_info, acu_info=acu_info)
-        installer.run_install()
+        parser = argparse.ArgumentParser(prog='Install software', description='Prompt spibeam to verify readbacks')
+        parser.add_argument('-path', '--bin_path', required=True,
+                            help='Path to installer. Ex:./ow_core_apps-release-master-0.9.6.1.iesa', type=str, default='127.0.0.1')
+        parser.add_argument('-ip', '--ut_ip', required=True,
+                            help='UT ip to install. Ex: 192.168.100.64', type=str, default='127.0.0.1')
+        parser.add_argument('-pw', '--ut_pw', required=False, help='UT password', type=str, default='use4Tst!')
+        parser.add_argument('-acu_ip', '--acu_ip', required=False,
+                            help='ACU ip. Ex: 192.168.100.254', type=str, default='192.168.100.254')
+        args = parser.parse_args()
+
+        local_file_path: str = args.bin_path
+        ut_ip: str = args.ut_ip
+        ut_pw: str = args.ut_pw
+        acu_ip: str = args.acu_ip
+        install_file_name: str = os.path.basename(local_file_path)
+        remote_file_path: str = f"/vien/install/{install_file_name}"
+        ssm_info: RemoteInfo = RemoteInfo(ut_ip, 'root', ut_pw)
+        acu_info: RemoteInfo = RemoteInfo(acu_ip, 'root', '')
+        installer: Installer = Installer(ssm_info=ssm_info, acu_info=acu_info, remote_installer_path=remote_file_path)
+        print(f"Transfering file from {local_file_path} to {remote_file_path}")
+        is_transferred: bool = transfer_file(local_file_path=local_file_path,
+                                             remote_dir_path=remote_file_path, ssm_info=ssm_info, acu_info=acu_info)
+        if (is_transferred):
+            print(f"Transfering file successful")
+            installer.run_install()
+        else:
+            print("Transfering file failed", file=sys.stderr)
     except Exception as e:
         traceback_str = traceback.format_exc()
         print(f"Unexpected exception {e}, traceback = {traceback_str}")
+        print(f"Error when installing {e}", file=sys.stderr)

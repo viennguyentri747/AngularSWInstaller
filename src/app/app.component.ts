@@ -6,6 +6,7 @@ import { DataService } from './data.service';
 import { FileSizePipe } from './file-size.pipe';
 import { CommonModule } from '@angular/common';
 
+
 @Component({
     selector: 'app-root',
     standalone: true,
@@ -22,9 +23,9 @@ export class AppComponent {
     selectedUtIp: string | null = null
     selectedUploadFile: File | null = null;
     isUploading: boolean = false;
+    isInstalling: boolean = false;
     uploadProgress: number = 0;
     currentTab: string = 'existing';
-
 
     constructor(private dataService: DataService) {
         this.fetchAvailableFiles();
@@ -32,21 +33,20 @@ export class AppComponent {
 
     public onSelectInstallSourceTab(tabId: string): void {
         this.currentTab = tabId;
-        this.clearOnNewTab();
+        this.unSetAll();
     }
 
-    private clearOnNewTab(): void {
+    private unSetAll(): void {
         this.selectedInstallFile = null;
         this.selectedUtIp = null;
-        this.selectedUploadFile = null;
-        this.uploadProgress = 0;
-        this.clearUploadInputView();
+        this.clearUpload();
     }
 
     public onSelectFileForUpload(event: Event): void {
         const inputElement = event.target as HTMLInputElement;
         if (!inputElement.files?.length) {
-            return
+            this.clearUpload();
+            return;
         }
 
         const file = inputElement.files[0];
@@ -56,53 +56,48 @@ export class AppComponent {
                     this.selectedUploadFile = file;
                 } else {
                     alert('File already exists.');
-                    this.clearUploadInputView();
+                    this.clearUpload();
                 }
             });
         });
     }
 
-
-    public uploadSelectedFile(): void {
+    public uploadFile(fileToUpload: File): void {
         this.isUploading = true;
-        if (this.selectedUploadFile) {
-            this.dataService.uploadFile(this.selectedUploadFile)
-                .subscribe({
-                    next: (event) => {
-                        if (event.type === HttpEventType.UploadProgress) {
-                            if (event.total) {
-                                this.uploadProgress = Math.round(100 * event.loaded / event.total);
-                            }
-                        } else if (event instanceof HttpResponse) {
-                            this.onFinishUploaded(true)
+        this.dataService.uploadFile(fileToUpload)
+            .subscribe({
+                next: (event) => {
+                    if (event.type === HttpEventType.UploadProgress) {
+                        if (!event.total) {
+                            return;
                         }
-                    },
-                    error: (error) => {
-                        console.error('Upload failed:', error);
-                        this.onFinishUploaded(false)
+                        this.uploadProgress = Math.round(100 * event.loaded / event.total);
+                    } else if (event instanceof HttpResponse) {
+                        //TODO: prompt finish upload here for user
+                        alert(`Finish upload file ${fileToUpload?.name}!`);
+                        this.onFinishUploaded(true)
                     }
+                },
+                error: (error) => {
+                    console.error('Upload failed:', error);
+                    this.onFinishUploaded(false)
                 }
-
-                );
-        }
+            });
     }
 
     private onFinishUploaded(is_success: boolean): void {
-        this.isUploading = false;
-
         if (is_success) {
             this.onSelectFileForInstall(this.selectedUploadFile?.name ?? null); // Automatically select the uploaded file
-            this.uploadProgress = 100;
-        } else {
-            this.uploadProgress = 0;
         }
 
-        this.selectedUploadFile = null;
-        this.clearUploadInputView();
+        this.clearUpload();
         this.fetchAvailableFiles();
     }
 
-    private clearUploadInputView(): void {
+    private clearUpload(): void {
+        this.isUploading = false;
+        this.selectedUploadFile = null;
+        this.uploadProgress = 0;
         this.fileUploadInputRef.nativeElement.value = "";
     }
 
@@ -126,18 +121,22 @@ export class AppComponent {
         });
     }
 
-    public installFile(): void {
-        if (!this.selectedInstallFile) {
-            alert('No file selected!');
-            return;
-        }
-        this.dataService.installFile(this.selectedInstallFile).subscribe({
-            next: (resp) => alert('Installation successful!'),
-            error: (err) => {
-                console.error('Installation failed', err);
-                alert('Installation failed! Please try again.');
+    public installFile(fileName: string, utIp: string): void {
+        this.isInstalling = true;
+        this.dataService.installFile(fileName, utIp, () => {
+            console.log(`Complete installing file ${fileName}`);
+            this.isInstalling = false;
+        }).subscribe(
+            {
+                next: (resp) => {
+                    if (resp) {
+                        const parsedData = JSON.parse(resp);
+                        console.log('Event: ' + parsedData)
+                    }
+                },
+                error: (err) => console.error('Failed to install files, error: ', err)
             }
-        });
+        )
     }
 
     public onSelectUt(utIp: string | null): void {

@@ -33,3 +33,32 @@
     transition: none !important;
     /* Overrides any other transition settings */
 }
+
+.card-body {
+    position: relative;
+    /* Ensures that the padding and height are respected */
+    overflow: hidden;
+    /* Hides anything outside the bounds of the card-body */
+    height: 220px;
+    /* Fixed height including padding */
+    padding: 0;
+    /* Removes internal padding */
+}
+
+.log-container {
+    position: absolute;
+    /* Aligns perfectly inside card-body without affecting its size */
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    /* Provides padding effect */
+    height: auto;
+    /* Automatically adjusts height to fit between padding */
+    overflow-y: auto;
+    /* Adds a vertical scrollbar when necessary */
+    margin: 0;
+    /* Removes default margin */
+    white-space: pre-wrap;
+    /* Wraps text to prevent horizontal scrollbar */
+}

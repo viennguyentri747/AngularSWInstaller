@@ -26,6 +26,7 @@ export class AppComponent {
     isInstalling: boolean = false;
     uploadProgress: number = 0;
     currentTab: string = 'existing';
+    currentInstallLog: string = '';
 
     constructor(private dataService: DataService) {
         this.fetchAvailableFiles();
@@ -132,6 +133,7 @@ export class AppComponent {
                     if (resp) {
                         const parsedData = JSON.parse(resp);
                         console.log('Event: ' + parsedData)
+                        this.currentInstallLog = parsedData
                     }
                 },
                 error: (err) => console.error('Failed to install files, error: ', err)

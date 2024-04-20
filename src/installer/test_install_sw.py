@@ -6,6 +6,7 @@ from file_transfer import *
 import time
 import requests
 import argparse
+import re as regex
 
 
 class Installer:
@@ -29,6 +30,23 @@ class Installer:
 
         self.close_current_connection()
 
+    def is_install_ok(self, expected_version, time_out=300) -> bool:
+        is_ok: bool = False
+        print("Trying to connect to acu ...")
+        self.open_tunnel_acu()  # Establish SSH tunnel
+        can_connect = self.try_connect_acu()  # Try to connect via the tunnel
+
+        print(f"Connected to acu {"success!" if is_ok else "fail!"}")
+        if (can_connect):
+            output = self.run_command(f"cat /opt/etc/pkg_name/pkg_name.txt")
+
+            self.close_current_connection()
+            match = regex.search(r'firmware_version_current=([\d.]+)', output)
+            if match:
+                version = match.group(1)
+                is_ok = version == expected_version
+        return is_ok
+
     def open_tunnel_acu(self):
         self.current_tunnel = SSHTunnelForwarder(
             (ssm_info.ip, 22),  # PRIVATE IP SSM
@@ -38,7 +56,7 @@ class Installer:
         )
         self.current_tunnel.start()
 
-    def try_connect_acu(self, time_out_secs=500) -> bool:
+    def try_connect_acu(self, time_out_secs=5) -> bool:
         local_host_ip = '127.0.0.1'
         self.current_connection: Connection = Connection(
             host=local_host_ip,
@@ -53,10 +71,11 @@ class Installer:
                 print("Try connecting")
                 self.current_connection.open()
                 print("Connect success!")
-                break
+                return True
             except Exception as e:
                 print(f"Connect attempt fail {e}")
                 time.sleep(0.5)
+        return False
 
     def get_partition_number(self) -> str:
         boot_txt: str = self.run_command("cat /run/media/boot/bootpart.txt").strip()
@@ -115,6 +134,7 @@ if __name__ == "__main__":
         parser.add_argument('-pw', '--ut_pw', required=False, help='UT password', type=str, default='use4Tst!')
         parser.add_argument('-acu_ip', '--acu_ip', required=False,
                             help='ACU ip. Ex: 192.168.100.254', type=str, default='192.168.100.254')
+        parser.
         args = parser.parse_args()
 
         local_file_path: str = args.bin_path
@@ -131,8 +151,13 @@ if __name__ == "__main__":
                                              remote_dir_path=remote_file_path, ssm_info=ssm_info, acu_info=acu_info)
         if (is_transferred):
             installer.run_install()
-            print("Install success!", flush=True)
-            exit(0)
+            print("Install success! -> Wait for verifying", flush=True)
+            is_install_ok: bool = installer.is_install_ok()
+            if (is_install_ok):
+                print("Install is ok! -> Done", flush=True)
+                exit(0)
+            else:
+                print("Install is not ok!", flush=True, file=sys.stderr)
         else:
             print("Transfering file failed", flush=True, file=sys.stderr)
     except Exception as e:

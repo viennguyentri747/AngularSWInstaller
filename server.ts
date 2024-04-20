@@ -1,13 +1,13 @@
-import express, { response } from 'express';
+import express from 'express';
 import multer from 'multer';
 import bodyParser from 'body-parser';
 import path from 'path';
 import fs from 'fs';
-import { CONFIG } from '@config/common_config';
+import { CONFIG } from '@common/common_config';
+import { UTInfo, EUtStatus } from '@common/common-model'
 import crypto from 'crypto'; // Include crypto module for hashing
 import { FileExistenceResponse } from 'src/common/common-model';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
-import { EventEmitter } from 'stream';
 
 const app: express.Application = express();
 const port: number = 3000;
@@ -33,7 +33,11 @@ const storage: multer.StorageEngine = multer.diskStorage({
 const upload: multer.Multer = multer({ storage: storage });
 
 let existingHashes: CheckSumHashTable = {};  // This now explicitly tells TypeScript the structure of existingHashes
-let availableUts: Array<string> = ["192.168.100.64", "192.168.100.65"];
+let availableUts: Array<string> = ["192.168.100.64", "192.168.100.65", "192.168.100.66", "192.168.100.67"];
+let utInfosByIp: { [ip: string]: UTInfo } = {};
+availableUts.forEach(ip => {
+    utInfosByIp[ip] = { ip, status: EUtStatus.Idle };
+});
 
 // Middleware
 app.use(bodyParser.json());
@@ -106,15 +110,44 @@ app.get(CONFIG.apiPaths.getExistingFileNames, (req: express.Request, res: expres
     });
 });
 
-// Get available uts request
-app.get(CONFIG.apiPaths.getAvailableUts, (req: express.Request, res: express.Response) => {
-    return res.json(availableUts)
-});
-
 app.get(CONFIG.apiPaths.installFile, (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+
+    try {
+        const utIp = req.query[CONFIG.requestObjectKeys.utIpAddress] as string;
+        const fileName = req.query[CONFIG.requestObjectKeys.installFileName] as string;
+        utInfosByIp[utIp].status = EUtStatus.Installing;
+        let currentError:any = null
+        const pythonProcess: ChildProcessWithoutNullStreams = spawn('python3', ['src/installer/test_install_sw.py',
+            '-path', path.join(uploadsDir, fileName), '-ip', utIp]);
+        
+        pythonProcess.stdout.on('data', (data: Buffer) => {
+            const output = data.toString();
+            console.log(output);
+            sendEventResponse(output);
+        });
+        
+        pythonProcess.stderr.on('data', (data: Buffer) => {
+            currentError = data.toString();
+            utInfosByIp[utIp].status = EUtStatus.Error;
+            sendEventResponse(`Complete install -> Failed. Error = ${currentError}`, CONFIG.serverMessageVars.errorEvent)
+        });
+
+        pythonProcess.on('close', (code: number) => {
+            console.log(`Python script completed with code ${code}.`);
+            if (code == 0) {
+                utInfosByIp[utIp].status = EUtStatus.Idle;
+                sendEventResponse(`Complete install -> Success`, CONFIG.serverMessageVars.completeEvent)
+            } else if (currentError == null) { //Haven't handle
+                utInfosByIp[utIp].status = EUtStatus.Error;
+                sendEventResponse(`Complete install -> Failed. Unknown error!`, CONFIG.serverMessageVars.errorEvent)
+            }
+        });
+    } catch (error) {
+        console.log(`Catched unexpected error ${error}`);
+    }
 
     const sendEventResponse = (data: any, eventName: string | null = null) => {
         // Warning: The format should be fixed, read SSE events for details
@@ -123,34 +156,11 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
         }
         res.write(`data: ${JSON.stringify(data)}\n\n`);
     };
-
-    try {
-        const utIp = req.query[CONFIG.requestObjectKeys.utIpAddress] as string;
-        const fileName = req.query[CONFIG.requestObjectKeys.installFileName] as string;
-        const filePath = path.join(uploadsDir, fileName);
-        const pythonProcess: ChildProcessWithoutNullStreams = spawn('python3', ['src/installer/test_install_sw.py',
-            '-path', filePath, '-ip', utIp]);
-
-        pythonProcess.stdout.on('data', (data: Buffer) => {
-            const output = data.toString();
-            console.log(output);
-            sendEventResponse(output);
-        });
-
-        pythonProcess.stderr.on('data', (data: Buffer) => {
-            const error = data.toString(); 
-            sendEventResponse(error, CONFIG.serverMessageVars.errorEvent);
-        });
-
-        pythonProcess.on('close', (code: number) => {
-            console.log(`Python script completed with code ${code}.`);
-            sendEventResponse("Complete", CONFIG.serverMessageVars.completeEvent)
-        });
-    } catch (error) {
-        console.log(`Catched unexpected error ${error}`);
-    }
 });
 
+app.get(CONFIG.apiPaths.getUtsInfos, (req, res) => {
+    res.json(utInfosByIp);
+});
 
 app.get('*', (req: express.Request, res: express.Response) => {
     res.sendFile(path.join(__dirname, 'src/index.html'));

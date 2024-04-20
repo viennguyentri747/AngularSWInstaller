@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';  // Import FormsModule here
 import { DataService } from './data.service';
 import { FileSizePipe } from './file-size.pipe';
 import { CommonModule } from '@angular/common';
-
+import { EUtStatus, UTInfo } from '@common/common-model'
 
 @Component({
     selector: 'app-root',
@@ -16,30 +16,41 @@ import { CommonModule } from '@angular/common';
 })
 export class AppComponent {
     @ViewChild('fileUploadInput') fileUploadInputRef!: ElementRef; //'!' to inform type script that variable will be initialized
+    utInfosByIp: { [ip: string]: UTInfo } = {}; // Key: ut_ip
+    utLogsByIp: { [ip: string]: string } = {}; // Key: ut_ip
+
     existingFileNames: string[] = [];
     title = 'ng_sw_installer';
     selectedInstallFile: string | null = null;  // Changed to string to hold the file name
-    availableUtIps: string[] = [];
-    selectedUtIp: string | null = null
     selectedUploadFile: File | null = null;
     isUploading: boolean = false;
-    isInstalling: boolean = false;
     uploadProgress: number = 0;
     currentTab: string = 'existing';
     currentInstallLog: string = '';
+    isReadyToInstall: boolean = false;
 
     constructor(private dataService: DataService) {
         this.fetchAvailableFiles();
+        this.fetchUtInfos();
+    }
+
+    public hasUtInfos(): boolean {
+        return Object.values(this.utInfosByIp).length > 0;
+    }
+
+    public getAvailableUtIps(): string[] {
+        return Object.values(this.utInfosByIp)
+            .filter(utInfo => utInfo.status === EUtStatus.Idle)
+            .map(utInfo => utInfo.ip);
     }
 
     public onSelectInstallSourceTab(tabId: string): void {
         this.currentTab = tabId;
-        this.unSetAll();
+        this.unSetSelected();
     }
 
-    private unSetAll(): void {
+    private unSetSelected(): void {
         this.selectedInstallFile = null;
-        this.selectedUtIp = null;
         this.clearUpload();
     }
 
@@ -63,6 +74,12 @@ export class AppComponent {
         });
     }
 
+    private async calculateChecksum(file: File): Promise<string> {
+        const buffer = await file.arrayBuffer();
+        const digest = await crypto.subtle.digest('SHA-256', buffer);
+        return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
     public uploadFile(fileToUpload: File): void {
         this.isUploading = true;
         this.dataService.uploadFile(fileToUpload)
@@ -74,7 +91,6 @@ export class AppComponent {
                         }
                         this.uploadProgress = Math.round(100 * event.loaded / event.total);
                     } else if (event instanceof HttpResponse) {
-                        //TODO: prompt finish upload here for user
                         alert(`Finish upload file ${fileToUpload?.name}!`);
                         this.onFinishUploaded(true)
                     }
@@ -112,43 +128,42 @@ export class AppComponent {
     public onSelectFileForInstall(installFileName: string | null): void {
         console.log(`File for install seleted: ${installFileName}`);
         this.selectedInstallFile = installFileName
-        this.fetchAvailableUts();
+        this.fetchUtInfos();
     }
 
-    private fetchAvailableUts(): void {
-        this.dataService.getAvailableUts().subscribe({
-            next: (resp) => this.availableUtIps = resp,
-            error: (err) => console.error('Failed to get files', err)
-        });
+    private async fetchUtInfos(): Promise<void> {
+        try {
+            this.utInfosByIp = await this.dataService.getUtInfos();
+        } catch (err) {
+            console.error('Failed to fetch UT statuses:', err);
+        }
     }
 
     public installFile(fileName: string, utIp: string): void {
-        this.isInstalling = true;
-        this.dataService.installFile(fileName, utIp, () => {
-            console.log(`Complete installing file ${fileName}`);
-            this.isInstalling = false;
-        }).subscribe(
+        if (!(utIp in this.utInfosByIp)) {
+            console.error("Can't find ut info");
+        }
+
+        this.utInfosByIp[utIp].status = EUtStatus.Installing;
+        this.dataService.installFile(fileName, utIp).subscribe(
             {
                 next: (resp) => {
                     if (resp) {
-                        const parsedData = JSON.parse(resp);
-                        console.log('Event: ' + parsedData)
-                        this.currentInstallLog = parsedData
+                        const installLog = JSON.parse(resp);
+                        this.utLogsByIp[utIp] = installLog;
                     }
                 },
-                error: (err) => console.error('Failed to install files, error: ', err)
+                error: (err) => {
+                    const errorStr = JSON.parse(err);
+                    console.error('Failed to install files. Error: ', errorStr)
+                    this.utLogsByIp[utIp] = errorStr;
+                    this.fetchUtInfos();
+                },
+                complete: () => {
+                    console.log(`Complete installing file ${fileName}`);
+                    this.fetchUtInfos();
+                },
             }
         )
-    }
-
-    public onSelectUt(utIp: string | null): void {
-        console.log(`Ut seleted: ${utIp}`);
-        this.selectedUtIp = utIp;
-    }
-
-    private async calculateChecksum(file: File): Promise<string> {
-        const buffer = await file.arrayBuffer();
-        const digest = await crypto.subtle.digest('SHA-256', buffer);
-        return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 }

@@ -1,11 +1,12 @@
 // src/app/data.service.ts
 import { Injectable, NgZone } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { CONFIG } from '@config/common_config';
-import { FileExistenceResponse } from 'src/common/common-model';
-import { Observable } from 'rxjs';
+import { CONFIG } from '@common/common_config';
+import { FileExistenceResponse } from '@common/common-model';
+import { Observable, lastValueFrom } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { HttpEvent } from '@angular/common/http';
+import { UTInfo } from '@common/common-model';
 
 
 @Injectable({
@@ -40,7 +41,7 @@ export class DataService {
     //     return this.http.post(CONFIG.apiPaths.installFile, { [CONFIG.requestObjectKeys.installFileName]: fileName, [CONFIG.requestObjectKeys.utIpAddress]: utIpAddress }, { responseType: 'text' });
     // }
 
-    public installFile(fileName: string, utIp: string, onComplete: () => void): Observable<any> {
+    public installFile(fileName: string, utIp: string): Observable<any> {
         console.log(`Installing file ${fileName} on ${utIp}`);
         return new Observable(observer => {
             const url = new URL(CONFIG.apiPaths.installFile, window.location.origin);
@@ -55,7 +56,8 @@ export class DataService {
 
             eventSource.addEventListener(CONFIG.serverMessageVars.completeEvent, (event) => {
                 this._zone.run(() => {
-                    onComplete();
+                    observer.next(event.data);
+                    observer.complete()
                     eventSource.close();
                 });
             });
@@ -78,7 +80,7 @@ export class DataService {
         });
     }
 
-    public getAvailableUts(): Observable<string[]> {
-        return this.http.get<string[]>(CONFIG.apiPaths.getAvailableUts);
+    public getUtInfos(): Promise<{ [ip: string]: UTInfo }> {
+        return lastValueFrom(this.http.get<{ [ip: string]: UTInfo }>(CONFIG.apiPaths.getUtsInfos))
     }
 }

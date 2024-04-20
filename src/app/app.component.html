@@ -1,6 +1,5 @@
 <!-- Include Bootstrap CSS for styling -->
 <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
-
 <div class="container">
     <div class="row justify-content-center">
         <div class="col-auto">
@@ -62,38 +61,40 @@
                     </div>
                 </div>
             </div>
-
-            <div *ngIf="selectedInstallFile && availableUtIps.length > 0" class="tab-content">
+            
+            <!-- Choose file to install -->
+            <div *ngIf="selectedInstallFile && hasUtInfos()" class="tab-content">
                 <div class="mt-3">
                     <strong>Choosen file for install:</strong> {{ selectedInstallFile }}<br>
                 </div>
-
-                <div class="mt-3">
-                    <label for="availableUts" class="form-label">Choose a UT for installation: </label>
-                    <select id="availableUts" class="custom-select" [(ngModel)]="selectedUtIp"
-                        (ngModelChange)="onSelectUt(selectedUtIp)">
-                        <option *ngFor="let utIp of availableUtIps" [value]="utIp">{{ utIp }}</option>
-                    </select>
-                </div>
-
-                <div class="mt-4">
-                    <button class="btn btn-primary" (click)="installFile(selectedInstallFile, selectedUtIp)"
-                        *ngIf="selectedInstallFile && selectedUtIp">Run Install</button>
-                </div>
             </div>
-
-
-            <!-- Installation Log Panel: Visible only when installation is active -->
-            <div *ngIf="isInstalling" class="card mt-4">
-                <div class="card-header">
-                    Installation Log
-                </div>
-                <div class="card-body" style="padding: 0; height: 220px;"> <!-- Fixed height and no internal padding -->
-                    <pre class="log-container"
-                        style="height: 200px; margin: 10px; overflow-y: auto; white-space: pre-wrap;">{{ currentInstallLog }}</pre>
-                    <!-- Scrollable, fixed height, margin for padding effect, auto overflow for scrollbar -->
-                </div>
-            </div>
+            
+            <!-- Table for UT Infos -->
+            <table class="table table-fixed-horizontal">
+                <thead>
+                    <tr>
+                        <th id="ip-col">UT IP</th>
+                        <th id="status-col">Status</th>
+                        <th id="progress-col">Install Log</th>
+                        <th id="install-col">Install</th> <!-- New column for install button -->
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let ut of utInfosByIp | keyvalue">
+                        <td id="ip-col">{{ ut.value.ip }}</td>
+                        <td id="status-col">{{ ut.value.status }}</td>
+                        <td id="progress-col"
+                            title="{{ utLogsByIp[ut.value.ip] ? utLogsByIp[ut.value.ip] : 'Unknown' }}">
+                            {{ utLogsByIp[ut.value.ip] || 'No Data' }}
+                        </td>
+                        <td id="install-col">
+                            <button class="btn btn-primary"
+                                (click)="selectedInstallFile && installFile(selectedInstallFile, ut.value.ip)"
+                                [disabled]="ut.value.status !== 'Idle' || !selectedInstallFile">Install</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>

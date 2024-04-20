@@ -1,8 +1,8 @@
-import { CONFIG } from '@config/common_config'
+import { CONFIG } from '@common/common_config'
 import fs from 'fs';
 
 
-syncProxyConfig('./src/config/custom_proxy_config.json')
+syncProxyConfig('./src/configs/custom_proxy_config.json')
 
 function syncProxyConfig(cfg_path: string): void {
     try {

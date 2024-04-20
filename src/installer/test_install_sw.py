@@ -28,7 +28,6 @@ class Installer:
                         partition_number=target_partition, rootfs=target_rootfs)
 
         self.close_current_connection()
-        print("Install complete!")
 
     def open_tunnel_acu(self):
         self.current_tunnel = SSHTunnelForwarder(
@@ -70,28 +69,24 @@ class Installer:
         return target_partition
 
     def get_rootfs(self, partition_number: str) -> Optional[str]:
-        try:
-            partition_device: str = f"mmcblk1p{partition_number}"
-            mount_points: str = self.run_command(f"lsblk -no MOUNTPOINT /dev/{partition_device}")
-            if (mount_points):
-                for mount_point_path in mount_points.split('\n'):
-                    rootfs: str = os.path.basename(mount_point_path)
-                    if (rootfs.startswith("rootfs")):
-                        return rootfs
-        except Exception as e:
-            print(f"Error retrieving mount point: {str(e)}")
-            return None
+        partition_device: str = f"mmcblk1p{partition_number}"
+        mount_points: str = self.run_command(f"lsblk -no MOUNTPOINT /dev/{partition_device}")
+        if (mount_points):
+            for mount_point_path in mount_points.split('\n'):
+                rootfs: str = os.path.basename(mount_point_path)
+                if (rootfs.startswith("rootfs")):
+                    return rootfs
 
-        return None
+        raise Exception(f"Error retrieving rootfs")
 
-    def install_sw(self, installer_path: str, partition_number: str, rootfs: str):
+    def install_sw(self, installer_path: str, partition_number: str, rootfs: str) -> bool:
         installer_file_name: str = os.path.basename(installer_path)
         is_on_eMMC = True  # Install on eMMC (instead of SD Card)
         is_u_env = False  # False if tested
         install_cmd: str = f"{installer_path} -e {is_on_eMMC} -b {partition_number} -l {rootfs} -u {is_u_env}"
-        print(install_cmd)
+        print(install_cmd, flush=True)
         # self.run_command(f"{installer_path} -h")
-        pass
+        return True
 
     def reboot_ssm() -> None:
         ssm_reset_url = f"http://{ssm_info.ip}/api/system/aim_reset"
@@ -105,7 +100,7 @@ class Installer:
             self.current_tunnel.close()
 
     def run_command(self, shell_command: str, is_hide=False) -> str:
-        print(f"Running command: {shell_command}")
+        print(f"Running command: {shell_command}", flush=True)
         result = self.current_connection.run(shell_command, hide=is_hide)
         return result.stdout
 
@@ -131,15 +126,15 @@ if __name__ == "__main__":
         ssm_info: RemoteInfo = RemoteInfo(ut_ip, 'root', ut_pw)
         acu_info: RemoteInfo = RemoteInfo(acu_ip, 'root', '')
         installer: Installer = Installer(ssm_info=ssm_info, acu_info=acu_info, remote_installer_path=remote_file_path)
-        print(f"Transfering file from {local_file_path} to {remote_file_path}")
+        print(f"Transfering file from {local_file_path} to {remote_file_path}", flush=True)
         is_transferred: bool = transfer_file(local_file_path=local_file_path,
                                              remote_dir_path=remote_file_path, ssm_info=ssm_info, acu_info=acu_info)
         if (is_transferred):
-            print(f"Transfering file successful")
             installer.run_install()
+            print("Install success!", flush=True)
+            exit(0)
         else:
-            print("Transfering file failed", file=sys.stderr)
+            print("Transfering file failed", flush=True, file=sys.stderr)
     except Exception as e:
-        traceback_str = traceback.format_exc()
-        print(f"Unexpected exception {e}, traceback = {traceback_str}")
-        print(f"Error when installing {e}", file=sys.stderr)
+        print(f"Unexpected exception {e}, traceback = {traceback.format_exc()}")
+    exit(1)

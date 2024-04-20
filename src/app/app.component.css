@@ -62,3 +62,73 @@
     white-space: pre-wrap;
     /* Wraps text to prevent horizontal scrollbar */
 }
+
+/* ====================== TABLE ====================== */
+table {
+    margin-top: 30px;
+    /* Consistent top margin for all tables */
+}
+
+.table-fixed-horizontal {
+    width: 100%;
+    /* Full width to occupy the available horizontal space */
+    table-layout: fixed;
+    /* Enable fixed table layout */
+    border-collapse: collapse;
+    /* Collapses borders to draw only a single border between cells */
+}
+
+.table-fixed-horizontal th,
+.table-fixed-horizontal td {
+    border: 1px solid #ddd;
+    /* Adds borders around cells for separation */
+    overflow: hidden;
+    /* Hide overflow text */
+    text-overflow: ellipsis;
+    /* Use ellipsis for text that overflows */
+    white-space: nowrap;
+    /* Text does not wrap and stays in a single line */
+    padding: 8px;
+    /* Padding inside cells */
+}
+
+.table-fixed-horizontal thead th {
+    position: sticky;
+    /* Sticky position for header row */
+    top: 0;
+    /* Stick to the top of the table scroll area */
+    background-color: #f8f9fa;
+    /* Background color of the header */
+    z-index: 10;
+    /* Ensures the header is above other rows when scrolling */
+}
+
+/* Fixed width for columns can be specified here */
+.table-fixed-horizontal th#ip-col,
+.table-fixed-horizontal td#ip-col {
+    width: 14%;
+    /* Example width for IP column */
+}
+
+.table-fixed-horizontal th#status-col,
+.table-fixed-horizontal td#status-col {
+    width: 10%;
+    /* Example width for status column */
+}
+
+.table-fixed-horizontal th#progress-col,
+.table-fixed-horizontal td#progress-col {
+    width: 64%;
+    /* Example width for progress column */
+}
+
+.table-fixed-horizontal th#install-col,
+.table-fixed-horizontal td#install-col {
+    width: 10%;
+}
+
+.table-fixed-horizontal td#install-col button {
+    margin: auto;
+    /* This can help override any default styles that might affect centering */
+    display: block;
+}

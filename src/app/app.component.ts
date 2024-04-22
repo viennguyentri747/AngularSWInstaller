@@ -38,12 +38,6 @@ export class AppComponent {
         return Object.values(this.utInfosByIp).length > 0;
     }
 
-    public getAvailableUtIps(): string[] {
-        return Object.values(this.utInfosByIp)
-            .filter(utInfo => utInfo.status === EUtStatus.Idle)
-            .map(utInfo => utInfo.ip);
-    }
-
     public onSelectInstallSourceTab(tabId: string): void {
         this.currentTab = tabId;
         this.unSetSelected();
@@ -152,12 +146,6 @@ export class AppComponent {
                         const installLog = JSON.parse(resp);
                         this.utLogsByIp[utIp] = installLog;
                     }
-                },
-                error: (err) => {
-                    const errorStr = JSON.parse(err);
-                    console.error('Failed to install files. Error: ', errorStr)
-                    this.utLogsByIp[utIp] = errorStr;
-                    this.fetchUtInfos();
                 },
                 complete: () => {
                     console.log(`Complete installing file ${fileName}`);

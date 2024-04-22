@@ -33,7 +33,7 @@ const storage: multer.StorageEngine = multer.diskStorage({
 const upload: multer.Multer = multer({ storage: storage });
 
 let existingHashes: CheckSumHashTable = {};  // This now explicitly tells TypeScript the structure of existingHashes
-let availableUts: Array<string> = ["192.168.100.64", "192.168.100.65", "192.168.100.66", "192.168.100.67"];
+let availableUts: Array<string> = ["192.168.100.64", "192.168.100.65", "172.16.20.97", "192.168.100.67"];
 let utInfosByIp: { [ip: string]: UTInfo } = {};
 availableUts.forEach(ip => {
     utInfosByIp[ip] = { ip, status: EUtStatus.Idle };
@@ -119,31 +119,23 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
         const utIp = req.query[CONFIG.requestObjectKeys.utIpAddress] as string;
         const fileName = req.query[CONFIG.requestObjectKeys.installFileName] as string;
         utInfosByIp[utIp].status = EUtStatus.Installing;
-        let currentError:any = null
         const pythonProcess: ChildProcessWithoutNullStreams = spawn('python3', ['src/installer/test_install_sw.py',
             '-path', path.join(uploadsDir, fileName), '-ip', utIp]);
-        
+
+        let latestLog: string = ""
         pythonProcess.stdout.on('data', (data: Buffer) => {
             const output = data.toString();
+            latestLog = output;
             console.log(output);
             sendEventResponse(output);
-        });
-        
-        pythonProcess.stderr.on('data', (data: Buffer) => {
-            currentError = data.toString();
-            utInfosByIp[utIp].status = EUtStatus.Error;
-            sendEventResponse(`Complete install -> Failed. Error = ${currentError}`, CONFIG.serverMessageVars.errorEvent)
         });
 
         pythonProcess.on('close', (code: number) => {
             console.log(`Python script completed with code ${code}.`);
-            if (code == 0) {
-                utInfosByIp[utIp].status = EUtStatus.Idle;
-                sendEventResponse(`Complete install -> Success`, CONFIG.serverMessageVars.completeEvent)
-            } else if (currentError == null) { //Haven't handle
-                utInfosByIp[utIp].status = EUtStatus.Error;
-                sendEventResponse(`Complete install -> Failed. Unknown error!`, CONFIG.serverMessageVars.errorEvent)
-            }
+            const isInstallSuccess: boolean = (code == 0);
+            utInfosByIp[utIp].status = isInstallSuccess ? EUtStatus.Idle : EUtStatus.Error;
+            sendEventResponse(`Complete install -> ${isInstallSuccess ? "Succeed" : "Failed"}. Latest log = ${latestLog}`
+                , CONFIG.serverMessageVars.completeEvent)
         });
     } catch (error) {
         console.log(`Catched unexpected error ${error}`);

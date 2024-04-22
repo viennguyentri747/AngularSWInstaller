@@ -50,24 +50,19 @@ export class DataService {
             const eventSource = new EventSource(url);
             eventSource.onmessage = event => {
                 this._zone.run(() => {
-                    observer.next(event.data);
+                    const message = event.data
+                    observer.next(message);
                 });
             };
 
             eventSource.addEventListener(CONFIG.serverMessageVars.completeEvent, (event) => {
                 this._zone.run(() => {
-                    observer.next(event.data);
+                    const message = event.data
+                    observer.next(message);
                     observer.complete()
                     eventSource.close();
                 });
             });
-
-            eventSource.addEventListener(CONFIG.serverMessageVars.errorEvent, (event) => {
-                this._zone.run(() => {
-                    observer.error(event.data);
-                    eventSource.close();
-                });
-            })
 
             eventSource.onerror = error => {
                 this._zone.run(() => {

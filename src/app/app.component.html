@@ -90,7 +90,7 @@
                         <td id="install-col">
                             <button class="btn btn-primary"
                                 (click)="selectedInstallFile && installFile(selectedInstallFile, ut.value.ip)"
-                                [disabled]="ut.value.status !== 'Idle' || !selectedInstallFile">Install</button>
+                                [disabled]="ut.value.status === 'Installing' || !selectedInstallFile">Install</button>
                         </td>
                     </tr>
                 </tbody>

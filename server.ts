@@ -119,24 +119,36 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
         const utIp = req.query[CONFIG.requestObjectKeys.utIpAddress] as string;
         const fileName = req.query[CONFIG.requestObjectKeys.installFileName] as string;
         utInfosByIp[utIp].status = EUtStatus.Installing;
-        const pythonProcess: ChildProcessWithoutNullStreams = spawn('python3', ['src/installer/test_install_sw.py',
-            '-path', path.join(uploadsDir, fileName), '-ip', utIp]);
 
-        let latestLog: string = ""
-        pythonProcess.stdout.on('data', (data: Buffer) => {
+        // Run install script
+        const bashProcess: ChildProcessWithoutNullStreams = spawn('bash', ['src/bash_installer/install_sw.sh',
+            '--bin_path', path.join(uploadsDir, fileName), '--ut_ip', utIp]);
+
+        let latestLog: string = "";
+        
+        //On process finished
+        bashProcess.stdout.on('data', (data: Buffer) => {
             const output = data.toString();
             latestLog = output;
             console.log(output);
             sendEventResponse(output);
         });
 
-        pythonProcess.on('close', (code: number) => {
-            console.log(`Python script completed with code ${code}.`);
+        //On process completed (can be error/no error)
+        bashProcess.on('close', (code: number) => {
+            console.log(`Bash script completed with code ${code}.`);
             const isInstallSuccess: boolean = (code == 0);
             utInfosByIp[utIp].status = isInstallSuccess ? EUtStatus.Idle : EUtStatus.Error;
-            sendEventResponse(`Complete install -> ${isInstallSuccess ? "Succeed" : "Failed"}. Latest log = ${latestLog}`
-                , CONFIG.serverMessageVars.completeEvent)
+            if (isInstallSuccess) {
+                sendEventResponse(`Install Succeeded!`, CONFIG.serverMessageVars.completeEvent);
+            } else {
+                sendEventResponse(`Install Failed. Latest log = ${latestLog}`, CONFIG.serverMessageVars.completeEvent);
+            }
+
+            //TODO: VERIFY INSTALLATION
+
         });
+
     } catch (error) {
         console.log(`Catched unexpected error ${error}`);
     }
@@ -149,6 +161,8 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
         res.write(`data: ${JSON.stringify(data)}\n\n`);
     };
 });
+
+
 
 app.get(CONFIG.apiPaths.getUtsInfos, (req, res) => {
     res.json(utInfosByIp);

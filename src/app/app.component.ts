@@ -6,6 +6,7 @@ import { DataService } from './data.service';
 import { FileSizePipe } from './file-size.pipe';
 import { CommonModule } from '@angular/common';
 import { EUtStatus, UTInfo } from '@common/common-model'
+import { InstallerHelper as helper } from './installer_helper';
 
 @Component({
     selector: 'app-root',
@@ -56,7 +57,11 @@ export class AppComponent {
         }
 
         const file = inputElement.files[0];
-        this.calculateChecksum(file).then(hash => {
+        if(!helper.IsFileOkToUpload(file)){
+            return;
+        }
+
+        helper.CalculateChecksum(file).then(hash => {
             this.dataService.checkFileExists(hash).subscribe(exists => {
                 if (!exists) {
                     this.selectedUploadFile = file;
@@ -66,12 +71,6 @@ export class AppComponent {
                 }
             });
         });
-    }
-
-    private async calculateChecksum(file: File): Promise<string> {
-        const buffer = await file.arrayBuffer();
-        const digest = await crypto.subtle.digest('SHA-256', buffer);
-        return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
     public uploadFile(fileToUpload: File): void {

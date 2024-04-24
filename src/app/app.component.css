@@ -63,6 +63,14 @@
     /* Wraps text to prevent horizontal scrollbar */
 }
 
+/* ======================  ====================== */
+.highlight-option {
+    background-color: #D0EFFF;
+    /* Soft blue for a gentle, noticeable highlight */
+    color: #003366;
+    /* Dark blue for text ensures readability */
+}
+
 /* ====================== TABLE ====================== */
 table {
     margin-top: 30px;

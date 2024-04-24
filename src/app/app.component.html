@@ -25,13 +25,17 @@
                 <div [ngClass]="currentTab == 'existing' ? 'tab-pane fade show active' : 'tab-pane fade'">
 
                     <!-- Check if there are files available -->
-                    <div *ngIf="existingFileNames.length > 0; else noFilesTemplate">
+                    <div *ngIf="uploadedFileInfos.length > 0; else noFilesTemplate">
                         <label for="existingFiles" class="form-label mt-3">Choose an existing file:</label>
                         <select id="existingFiles" class="custom-select" [(ngModel)]="selectedInstallFile"
                             (ngModelChange)="onSelectFileForInstall(selectedInstallFile)">
-                            <option *ngFor="let file of existingFileNames" [value]="file">{{ file }}</option>
+                            <option *ngFor="let file of uploadedFileInfos" [value]="file.fileName"
+                                [ngClass]="{'highlight-option': file.isLatestVersion}">
+                                {{ file.fileName }}{{ file.isLatestVersion ? ' (latest version)' : '' }}
+                            </option>
                         </select>
                     </div>
+
 
                     <!-- Template to display when no files are available -->
                     <ng-template #noFilesTemplate>

@@ -2,7 +2,7 @@ export const CONFIG = {
     apiPaths: {
         checkFileExists: "/check_file_exist",
         uploadFile: "/upload_file",
-        getExistingFileNames: "/read_existing_files_names",
+        getExistingFileInfos: "/get_existing_file_infos",
         installFile: "/install",
         getUtsInfos: "/get_ut_infos"
     },
@@ -18,6 +18,9 @@ export const CONFIG = {
     storagePaths:{
         upload: "storage/upload",
         download: "storage/download"
+    },
+    installerVersion:{
+        latest: "0.9.8.4"
     }
 };
 

@@ -5,9 +5,8 @@ import { FormsModule } from '@angular/forms';  // Import FormsModule here
 import { DataService } from './data.service';
 import { FileSizePipe } from './file-size.pipe';
 import { CommonModule } from '@angular/common';
-import { EUtStatus, UTInfo } from '@common/common-model'
-import { InstallerHelper as helper } from './installer_helper';
-
+import { EUtStatus, UTInfo, InstallFileInfo } from '@common/common-model'
+import { IsFileOkToUpload, CalculateChecksum } from 'src/common/common-functions';
 @Component({
     selector: 'app-root',
     standalone: true,
@@ -19,8 +18,7 @@ export class AppComponent {
     @ViewChild('fileUploadInput') fileUploadInputRef!: ElementRef; //'!' to inform type script that variable will be initialized
     utInfosByIp: { [ip: string]: UTInfo } = {}; // Key: ut_ip
     utLogsByIp: { [ip: string]: string } = {}; // Key: ut_ip
-
-    existingFileNames: string[] = [];
+    uploadedFileInfos: Array<InstallFileInfo> = []
     title = 'ng_sw_installer';
     selectedInstallFile: string | null = null;  // Changed to string to hold the file name
     selectedUploadFile: File | null = null;
@@ -57,11 +55,11 @@ export class AppComponent {
         }
 
         const file = inputElement.files[0];
-        if(!helper.IsFileOkToUpload(file)){
+        if(!IsFileOkToUpload(file)){
             return;
         }
 
-        helper.CalculateChecksum(file).then(hash => {
+        CalculateChecksum(file).then(hash => {
             this.dataService.checkFileExists(hash).subscribe(exists => {
                 if (!exists) {
                     this.selectedUploadFile = file;
@@ -112,8 +110,8 @@ export class AppComponent {
     }
 
     private fetchAvailableFiles(): void {
-        this.dataService.getExistingFileNames().subscribe({
-            next: (resp) => this.existingFileNames = resp,
+        this.dataService.getUploadedFileInfos().subscribe({
+            next: (resp) => this.uploadedFileInfos = resp,
             error: (err) => console.error('Failed to get files', err)
         });
     }
@@ -122,14 +120,6 @@ export class AppComponent {
         console.log(`File for install seleted: ${installFileName}`);
         this.selectedInstallFile = installFileName
         this.fetchUtInfos();
-    }
-
-    private async fetchUtInfos(): Promise<void> {
-        try {
-            this.utInfosByIp = await this.dataService.getUtInfos();
-        } catch (err) {
-            console.error('Failed to fetch UT statuses:', err);
-        }
     }
 
     public installFile(fileName: string, utIp: string): void {
@@ -152,5 +142,16 @@ export class AppComponent {
                 },
             }
         )
+    }
+
+    private async fetchUtInfos(): Promise<void> {
+        try {
+            this.dataService.getUtInfos().subscribe({
+                next: (resp) => this.utInfosByIp = resp,
+                error: (err) => console.error('Failed to get files', err)
+            });
+        } catch (err) {
+            console.error('Failed to fetch UT statuses:', err);
+        }
     }
 }

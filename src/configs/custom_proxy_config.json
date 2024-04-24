@@ -9,7 +9,7 @@
     "secure": false,
     "changeOrigin": true
   },
-  "/read_existing_files_names": {
+  "/get_existing_file_infos": {
     "target": "http://localhost:3000",
     "secure": false,
     "changeOrigin": true

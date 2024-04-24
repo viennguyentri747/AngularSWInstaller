@@ -4,9 +4,10 @@ import bodyParser from 'body-parser';
 import path from 'path';
 import fs from 'fs';
 import { CONFIG } from '@common/common_config';
-import { UTInfo, EUtStatus } from '@common/common-model'
-import crypto from 'crypto'; // Include crypto module for hashing
-import { FileExistenceResponse } from 'src/common/common-model';
+import { GetFileVersion } from 'src/common/common-functions';
+import { UTInfo, EUtStatus, InstallFileInfo } from '@common/common-model'
+import crypto from 'crypto'; // Include crypto module for hashing\
+import { FileExistenceResponse, InstallFilesResponse, UTInfosResponse } from 'src/common/common-response';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 
 const app: express.Application = express();
@@ -17,7 +18,6 @@ interface CheckSumHashTable {
 
 const cors = require('cors');
 app.use(cors());
-
 // Multer config for file upload
 const storage: multer.StorageEngine = multer.diskStorage({
     // A string or function that determines the destination path for uploaded files
@@ -36,8 +36,9 @@ let existingHashes: CheckSumHashTable = {};  // This now explicitly tells TypeSc
 let availableUts: Array<string> = ["192.168.100.64", "192.168.100.65", "172.16.20.97", "192.168.100.67"];
 let utInfosByIp: { [ip: string]: UTInfo } = {};
 availableUts.forEach(ip => {
-    utInfosByIp[ip] = { ip, status: EUtStatus.Idle };
+    utInfosByIp[ip] = { ip: ip, status: EUtStatus.Idle };
 });
+let fileInfos: Array<InstallFileInfo> = []
 
 // Middleware
 app.use(bodyParser.json());
@@ -52,17 +53,26 @@ if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Read all files and calculate their hashes on startup
-fs.readdir(uploadsDir, async (err, files) => {
-    if (err) {
-        return console.error("Failed to list directory", err);
-    }
-    for (let file of files) {
-        const filePath = path.join(uploadsDir, file);
-        const fileHash = await calculateHash(filePath);
-        existingHashes[fileHash] = true;
-    }
-});
+// Read all files to init data (existing hashes, fileInfos) on startup
+reloadFilesData();
+function reloadFilesData(): void {
+    fs.readdir(uploadsDir, async (err, fileNames) => {
+        if (err) {
+            return console.error("Failed to list directory", err);
+        }
+
+        fileInfos = [];
+        for (let fileName of fileNames) {
+            const filePath = path.join(uploadsDir, fileName);
+
+            const fileHash = await calculateHash(filePath);
+            existingHashes[fileHash] = true;
+
+            // TODO: fetch latest version from GITLAB
+            addNewFileInfo(fileName)
+        }
+    });
+}
 
 // Check files exists request
 app.post(CONFIG.apiPaths.checkFileExists, (req, res) => {
@@ -82,9 +92,21 @@ app.post(CONFIG.apiPaths.uploadFile, upload.single('file'), async (req, res) => 
     if (req.file) {
         const fileHash = await calculateHash(req.file.path);
         existingHashes[fileHash] = true; // Update hash table with new file's hash
+        addNewFileInfo(req.file.filename)
         res.json({ message: `File uploaded successfully: ${req.file.path}` });
     }
 });
+
+function addNewFileInfo(fileName: string): void {
+    const fileVersion = GetFileVersion(fileName)
+    const isLatestVersion = fileVersion == CONFIG.installerVersion.latest
+    const fileInfo: InstallFileInfo = {
+        fileName: fileName,
+        version: fileVersion,
+        isLatestVersion: isLatestVersion
+    };
+    fileInfos.push(fileInfo);
+}
 
 // Function to calculate hash of file content
 function calculateHash(filePath: string): Promise<string> {
@@ -97,17 +119,9 @@ function calculateHash(filePath: string): Promise<string> {
     });
 }
 
-// Get files request
-app.get(CONFIG.apiPaths.getExistingFileNames, (req: express.Request, res: express.Response) => {
-    fs.readdir(uploadsDir, (err: NodeJS.ErrnoException | null, file_names: string[]) => {
-        console.log(file_names.length)
-        if (err) {
-            res.status(500).send('Error retrieving file list');
-            return;
-        }
-
-        return res.json(file_names);
-    });
+// Get file infos request
+app.get(CONFIG.apiPaths.getExistingFileInfos, (req: express.Request, res: express.Response) => {
+    res.json({ fileInfos: fileInfos } as InstallFilesResponse);
 });
 
 app.get(CONFIG.apiPaths.installFile, (req, res) => {
@@ -125,7 +139,7 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
             '--bin_path', path.join(uploadsDir, fileName), '--ut_ip', utIp]);
 
         let latestLog: string = "";
-        
+
         //On process finished
         bashProcess.stdout.on('data', (data: Buffer) => {
             const output = data.toString();
@@ -162,10 +176,8 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
     };
 });
 
-
-
 app.get(CONFIG.apiPaths.getUtsInfos, (req, res) => {
-    res.json(utInfosByIp);
+    res.json({ utInfosByIp: utInfosByIp } as UTInfosResponse);
 });
 
 app.get('*', (req: express.Request, res: express.Response) => {

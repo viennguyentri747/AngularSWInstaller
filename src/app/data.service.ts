@@ -2,7 +2,8 @@
 import { Injectable, NgZone } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CONFIG } from '@common/common_config';
-import { FileExistenceResponse } from '@common/common-model';
+import { InstallFileInfo } from '@common/common-model';
+import { FileExistenceResponse, InstallFilesResponse, UTInfosResponse as UTInfosResponse } from '@common/common-response'
 import { Observable, lastValueFrom } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { HttpEvent } from '@angular/common/http';
@@ -15,8 +16,18 @@ import { UTInfo } from '@common/common-model';
 export class DataService {
     constructor(private _zone: NgZone, private http: HttpClient) { }
 
-    public getExistingFileNames(): Observable<string[]> {
-        return this.http.get<string[]>(CONFIG.apiPaths.getExistingFileNames);
+    public getUploadedFileInfos(): Observable<InstallFileInfo[]> {
+        return this.http.get<InstallFilesResponse>(CONFIG.apiPaths.getExistingFileInfos).pipe(map((response: InstallFilesResponse) => {
+            console.log(response);
+            return response.fileInfos;
+        }));
+    }
+
+    public getUtInfos(): Observable<{ [ip: string]: UTInfo }> {
+        return this.http.get<UTInfosResponse>(CONFIG.apiPaths.getUtsInfos).pipe(map((response: UTInfosResponse) => {
+            console.log(response);
+            return response.utInfosByIp;
+        }));
     }
 
     public checkFileExists(hash: String): Observable<boolean> {
@@ -36,10 +47,6 @@ export class DataService {
             observe: 'events'
         });
     }
-
-    // public installFile(fileName: string, utIpAddress: string): Observable<string> {
-    //     return this.http.post(CONFIG.apiPaths.installFile, { [CONFIG.requestObjectKeys.installFileName]: fileName, [CONFIG.requestObjectKeys.utIpAddress]: utIpAddress }, { responseType: 'text' });
-    // }
 
     public installFile(fileName: string, utIp: string): Observable<any> {
         console.log(`Installing file ${fileName} on ${utIp}`);
@@ -75,7 +82,5 @@ export class DataService {
         });
     }
 
-    public getUtInfos(): Promise<{ [ip: string]: UTInfo }> {
-        return lastValueFrom(this.http.get<{ [ip: string]: UTInfo }>(CONFIG.apiPaths.getUtsInfos))
-    }
+
 }

@@ -7,6 +7,7 @@ ACU_IP="192.168.100.254"
 REMOTE_FOLDER_PATH="/vien/install"
 CONNECT_TIMEOUT=5
 
+
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -52,7 +53,7 @@ IGNORE_ARG="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 function remote_exec() {
     # echo "Running command $@"
-    if ssh -J $JUMP_HOST $IGNORE_ARG -o ConnectTimeout=$CONNECT_TIMEOUT -q "$DESTINATION_HOST" "$@"; then
+    if ssh -J $JUMP_HOST $IGNORE_ARG -o ConnectTimeout=$CONNECT_TIMEOUT -q "$DESTINATION_HOST" "bash -l -c '$@'"; then
         : # Do nothing if the SSH command succeeds
     else
         echo "Command '$@' failed!"
@@ -73,6 +74,8 @@ if [[ -z "$BINARY_PATH" || -z "$UT_IP" ]]; then
     echo "Error: --bin_path and --ut_ip are required."
     exit 1
 fi
+
+remote_exec 'echo $PATH'
 
 # Transfer (copy) file to remote -> Create folder if not exist then copy to it
 REMOTE_INSTALLER_PATH="$REMOTE_FOLDER_PATH/$(basename $BINARY_PATH)"

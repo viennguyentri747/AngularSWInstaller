@@ -19,3 +19,24 @@ export function GetFileVersion(filename: string): string {
 
     return "Unknown Version";
 }
+
+
+export function EscapePythonRepr(input: string): string {
+    // This function assumes that the input string is surrounded by single quotes if it was repr-ed by Python
+    // Strip the surrounding quotes if present
+    if (input.startsWith("'") && input.endsWith("'")) {
+        input = input.substring(1, input.length - 1);
+    }
+
+    return input
+        // Replace escaped single quote
+        .replace(/\\'/g, "'")
+        // Replace escaped backslash
+        .replace(/\\\\/g, '\\')
+        // Replace other common escaped characters
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        // Add other escapes as necessary
+        ;
+}

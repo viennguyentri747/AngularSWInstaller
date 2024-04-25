@@ -1,79 +1,80 @@
 import os
+from custom_log import LOG
 from ssh_helper import SSHHelper, RemoteInfo
-from file_transferer import FileTransferer
+from binary_transferer import transfer
+from binary_installer import InstallInfo, install
+from install_verifier import is_install_ok
 import traceback
 import argparse
+import time
 
 
-class Installer:
-    def __init__(self, ssh_manager: SSHHelper, remote_installer_path: str):
-        self.ssh_manager = ssh_manager
-        self.remote_installer_path = remote_installer_path
+def format_time(seconds: int) -> str:
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    seconds = seconds % 60
 
-    def run_install(self):
-        self.ssh_manager.connect_acu()
-        target_partition = self.get_partition_number()
-        target_rootfs = self.get_rootfs(target_partition)
-        self.ssh_manager.exec_command_acu(f"chmod 775 {self.remote_installer_path}")
-        self.install_sw(partition_number=target_partition, rootfs=target_rootfs)
-        self.ssh_manager.close_connections()
+    # Build a list of time components that are non-zero
+    time_components = []
+    if hours:
+        time_components.append(f"{hours} hour{'s' if hours > 1 else ''}")
+    if minutes:
+        time_components.append(f"{minutes} minute{'s' if minutes > 1 else ''}")
+    if seconds or not time_components:
+        time_components.append(f"{seconds} second{'s' if seconds > 1 else ''}")
 
-    def get_partition_number(self):
-        boot_txt = self.ssh_manager.exec_command_acu("cat /run/media/boot/bootpart.txt").strip()
-        partition_info = boot_txt.split('=')[1]
-        return '2' if partition_info == '3' else '3'
-
-    def get_rootfs(self, partition_number):
-        mount_points = self.ssh_manager.exec_command_acu(
-            f"lsblk -no MOUNTPOINT /dev/mmcblk1p{partition_number}")
-        return mount_points.split('\n')[0]
-
-    def install_sw(self, partition_number, rootfs):
-        install_cmd = f"{self.remote_installer_path} -e True -b {partition_number} -l {rootfs} -u False"
-        print(f"Executing install cmd: {install_cmd}", flush= True)
-        result = self.ssh_manager.exec_command_acu(install_cmd)
-        print(result, flush=True)
+    # Join all components with commas
+    return ', '.join(time_components)
 
 
 if __name__ == "__main__":
+    start_time: int = time.time()
     try:
         parser = argparse.ArgumentParser(prog='Install software', description='Prompt spibeam to verify readbacks')
         parser.add_argument('-path', '--bin_path', required=True,
                             help='Path to installer. Ex:./ow_core_apps-release-master-0.9.6.1.iesa', type=str, default='127.0.0.1')
         parser.add_argument('-ip', '--ut_ip', required=True,
                             help='UT ip to install. Ex: 192.168.100.64', type=str, default='127.0.0.1')
+        parser.add_argument('-version', '--target_version', required=True,
+                            help='Target binary version. Ex: 0.9.8.4', type=str, default='0.9.8.4')
         parser.add_argument('-pw', '--ut_pw', required=False, help='UT password', type=str, default='use4Tst!')
         parser.add_argument('-acu_ip', '--acu_ip', required=False,
                             help='ACU ip. Ex: 192.168.100.254', type=str, default='192.168.100.254')
+        parser.add_argument('-connect_timeout', "--ssh_connect_timeout_secs", required=False,
+                            help='Connect timeout in secs for connect to acu, transfer file ... Ex: 10', type=int, default=10)
+        parser.add_argument('-reboot_timeout', "--reboot_timeout_secs", required=False,
+                            help='Reboot time out in secs for verify. Ex: 600', type=int, default=600)
         args = parser.parse_args()
         local_file_path: str = args.bin_path
         ut_ip: str = args.ut_ip
         ut_pw: str = args.ut_pw
         acu_ip: str = args.acu_ip
+        target_version: str = args.target_version
+        connect_timeout_secs: str = args.ssh_connect_timeout_secs
+        rebooot_timeout_secs: int = args.reboot_timeout_secs
 
         install_file_name: str = os.path.basename(local_file_path)
         remote_file_path: str = f"/vien/install/{install_file_name}"
         ssm_info: RemoteInfo = RemoteInfo(ut_ip, 'root', ut_pw)
         acu_info: RemoteInfo = RemoteInfo(acu_ip, 'root', '')
-        ssh_manager = SSHHelper(ssm_info, acu_info)
+        ssh_helper: SSHHelper = SSHHelper(ssm_info, acu_info)
+        ssh_helper.connect_acu(connect_timeout_secs=connect_timeout_secs)
 
-        file_transferer: FileTransferer = FileTransferer(ssh_helper=ssh_manager)
-        is_transfer_success: bool = file_transferer.transfer(
-            local_file_path=local_file_path, remote_file_path=remote_file_path, connect_timeout_secs=10)
-        if (is_transfer_success):
-            installer = Installer(ssh_manager, remote_installer_path=remote_file_path)
-            installer.run_install()
-            print("Install success!", flush=True)
-            # TODO: VERIFYING
-            # # is_install_ok: bool = installer.is_install_ok()
-            # if (is_install_ok):
-            #     print("Install is ok! -> Done", flush=True)
-            exit(0)
-            # else:
-            #     print("Install is not ok!", flush=True)
+        if transfer(ssh_helper, local_file_path=local_file_path, remote_file_path=remote_file_path, connect_timeout_secs=connect_timeout_secs):
+            installed_info: InstallInfo = install(ssh_helper, remote_installer_path=remote_file_path, target_version=target_version)
+            ssh_helper.close_connections()
+
+            LOG("Install done -> Verifying ...", flush=True)
+            ssh_helper.connect_acu(connect_timeout_secs=rebooot_timeout_secs)
+            is_ok: bool = is_install_ok(ssh_helper, installed_info=installed_info)
+            total_install_time: int = time.time() - start_time
+            install_result: str = "successful" if is_ok else "failed"
+            LOG(f"The installation to target was {install_result}. Total time taken: {format_time(total_install_time)}. Install Target: {str(installed_info)}")
+            if (is_ok):
+                exit(0)
         else:
-            print("Transfering file failed", flush=True)
+            LOG("Transferring file failed", flush=True)
     except Exception as e:
-        print(f"Unexpected exception {e}. {traceback.format_exc()}", flush= True)
+        LOG(f"Unexpected exception: {e}. {traceback.format_exc()}", flush=True)
 
     exit(1)

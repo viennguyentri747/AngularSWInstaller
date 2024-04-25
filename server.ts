@@ -4,11 +4,12 @@ import bodyParser from 'body-parser';
 import path from 'path';
 import fs from 'fs';
 import { CONFIG } from '@common/common_config';
-import { GetFileVersion } from 'src/common/common-functions';
+import { GetFileVersion, EscapePythonRepr } from 'src/common/common-functions';
 import { UTInfo, EUtStatus, InstallFileInfo } from '@common/common-model'
 import crypto from 'crypto'; // Include crypto module for hashing\
 import { FileExistenceResponse, InstallFilesResponse, UTInfosResponse } from 'src/common/common-response';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
+import { error } from 'console';
 
 const app: express.Application = express();
 const port: number = 3000;
@@ -33,7 +34,7 @@ const storage: multer.StorageEngine = multer.diskStorage({
 const upload: multer.Multer = multer({ storage: storage });
 
 let existingHashes: CheckSumHashTable = {};  // This now explicitly tells TypeScript the structure of existingHashes
-let availableUts: Array<string> = ["192.168.100.64", "192.168.100.65", "172.16.20.97", "192.168.100.67"];
+let availableUts: Array<string> = ["192.168.100.64", "192.168.100.65", "172.16.20.97", "192.168.100.67", "192.168.100.1"];
 let utInfosByIp: { [ip: string]: UTInfo } = {};
 availableUts.forEach(ip => {
     utInfosByIp[ip] = { ip: ip, status: EUtStatus.Idle };
@@ -132,25 +133,52 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
     try {
         const utIp = req.query[CONFIG.requestObjectKeys.utIpAddress] as string;
         const fileName = req.query[CONFIG.requestObjectKeys.installFileName] as string;
+        const fileInfo = fileInfos.find(file => file.fileName === fileName);
+        if (!fileInfo) {
+            throw new Error("No file info");
+        }
+
         utInfosByIp[utIp].status = EUtStatus.Installing;
-
         // Run install script
-        const bashProcess: ChildProcessWithoutNullStreams = spawn('bash', ['src/bash_installer/install_sw.sh',
-            '--bin_path', path.join(uploadsDir, fileName), '--ut_ip', utIp]);
-
+        const pythonProcess: ChildProcessWithoutNullStreams = spawn('python3', ['src/installer/test_install_sw.py',
+            '-path', path.join(uploadsDir, fileName), '-ip', utIp, '-version', fileInfo.version]);
         let latestLog: string = "";
 
-        //On process finished
-        bashProcess.stdout.on('data', (data: Buffer) => {
-            const output = data.toString();
-            latestLog = output;
-            console.log(output);
-            sendEventResponse(output);
+        pythonProcess.stdout.on('data', (data: Buffer) => {
+            const logFullMsg = data.toString().trim();
+            // SAMPLE: TO_SERVER:THIS IS MY LOG
+            const index = logFullMsg.indexOf(':');
+            if (index === -1) {
+                //ALWAYS have to have ':'.Ex: "TO_ALL:This is my log"
+                console.error('Unexpected log message:', logFullMsg);
+                return;
+            }
+            const dest = logFullMsg.substring(0, index).trim();
+            const message = EscapePythonRepr(logFullMsg.substring(index + 1).trim());  // Skip over the ':' part
+            latestLog = message;
+            switch (dest) {
+                case 'TO_SERVER':
+                    console.log(message);
+                    break;
+                case 'TO_APP':
+                    sendEventResponse(message);
+                    break;
+                default:
+                    console.log(message);
+                    sendEventResponse(message);
+                    break;
+            }
+
+        });
+
+        pythonProcess.stderr.on('data', (data: Buffer) => {
+            const error = data.toString();
+            console.log(`Latest error: ${error}`);
         });
 
         //On process completed (can be error/no error)
-        bashProcess.on('close', (code: number) => {
-            console.log(`Bash script completed with code ${code}.`);
+        pythonProcess.on('close', (code: number) => {
+            console.log(`Python script completed with code ${code}.`);
             const isInstallSuccess: boolean = (code == 0);
             utInfosByIp[utIp].status = isInstallSuccess ? EUtStatus.Idle : EUtStatus.Error;
             if (isInstallSuccess) {

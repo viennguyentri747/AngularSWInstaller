@@ -3,13 +3,12 @@ import multer from 'multer';
 import bodyParser from 'body-parser';
 import path from 'path';
 import fs from 'fs';
-import { CONFIG } from '@common/common_config';
-import { GetFileVersion, EscapePythonRepr } from 'src/common/common-functions';
+import { CONFIG, SERVER_CONFIG } from '@common/common_config';
+import { GetFileVersion, IsFileOkToInstall } from 'src/common/common-functions';
 import { UTInfo, EUtStatus, InstallFileInfo } from '@common/common-model'
 import crypto from 'crypto'; // Include crypto module for hashing\
 import { FileExistenceResponse, InstallFilesResponse, UTInfosResponse } from 'src/common/common-response';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
-import { error } from 'console';
 
 const app: express.Application = express();
 const port: number = 3000;
@@ -81,11 +80,14 @@ app.post(CONFIG.apiPaths.checkFileExists, (req, res) => {
 
     //Sanity check
     if (typeof hash !== 'string' || !/^[a-f0-9]{64}$/i.test(hash)) {
-        return res.status(400).json({ error: "Invalid hash format" });
+        // Usage:
+        if (typeof hash !== 'string' || !/^[a-f0-9]{64}$/i.test(hash)) {
+            return sendErrRequestResponse(res, SERVER_CONFIG.status_code.badRequest, "Invalid hash format");
+        }
     }
 
     const fileExists = existingHashes[hash] === true;
-    return res.status(200).json({ exists: fileExists } as FileExistenceResponse);
+    return res.json({ exists: fileExists } as FileExistenceResponse);
 });
 
 // Upload files request
@@ -138,6 +140,10 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
             throw new Error("No file info");
         }
 
+        if (!IsFileOkToInstall(fileInfo.fileName)) {
+            throw new Error("File is not ok to install");
+        }
+
         utInfosByIp[utIp].status = EUtStatus.Installing;
         // Run install script
         const pythonProcess: ChildProcessWithoutNullStreams = spawn('python3', ['src/installer/test_install_sw.py',
@@ -166,13 +172,11 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
             } else {
                 sendEventResponse(`Install Failed. Latest log = ${latestLog}`, CONFIG.serverMessageVars.completeEvent);
             }
-
-            //TODO: VERIFY INSTALLATION
-
         });
 
     } catch (error) {
-        console.log(`Catched unexpected error ${error}`);
+        console.log(`Caught unexpected error ${error}`);
+        sendErrRequestResponse(res, SERVER_CONFIG.status_code.internalServerError, "Invalid hash format");
     }
 
     const sendEventResponse = (data: any, eventName: string | null = null) => {
@@ -183,6 +187,7 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
         res.write(`data: ${JSON.stringify(data)}\n\n`);
     };
 });
+
 
 app.get(CONFIG.apiPaths.getUtsInfos, (req, res) => {
     res.json({ utInfosByIp: utInfosByIp } as UTInfosResponse);
@@ -196,3 +201,6 @@ app.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`);
 });
 
+function sendErrRequestResponse(res: express.Response, errorCode: number, errorMessage: string): express.Response {
+    return res.status(errorCode).json({ error: errorMessage });
+}

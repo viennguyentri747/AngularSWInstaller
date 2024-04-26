@@ -6,7 +6,7 @@ import { DataService } from './data.service';
 import { FileSizePipe } from './file-size.pipe';
 import { CommonModule } from '@angular/common';
 import { EUtStatus, UTInfo, InstallFileInfo } from '@common/common-model'
-import { IsFileOkToUpload, CalculateChecksum } from 'src/common/common-functions';
+import { IsFileOkToInstall, CalculateChecksum } from 'src/common/common-functions';
 @Component({
     selector: 'app-root',
     standalone: true,
@@ -55,7 +55,7 @@ export class AppComponent {
         }
 
         const file = inputElement.files[0];
-        if(!IsFileOkToUpload(file)){
+        if (!IsFileOkToInstall(file.name)) {
             return;
         }
 
@@ -87,7 +87,7 @@ export class AppComponent {
                     }
                 },
                 error: (error) => {
-                    console.error('Upload failed:', error);
+                    this.onRequestError('Upload files.', error);
                     this.onFinishUploaded(false)
                 }
             });
@@ -112,7 +112,9 @@ export class AppComponent {
     private fetchAvailableFiles(): void {
         this.dataService.getUploadedFileInfos().subscribe({
             next: (resp) => this.uploadedFileInfos = resp,
-            error: (err) => console.error('Failed to get files', err)
+            error: (err) => {
+                this.onRequestError('Get files', err);
+            }
         });
     }
 
@@ -136,6 +138,10 @@ export class AppComponent {
                         this.utLogsByIp[utIp] = installLog;
                     }
                 },
+                error: (err) => {
+                    this.onRequestError('Install files', err);
+                    this.utInfosByIp[utIp].status = EUtStatus.Idle;
+                },
                 complete: () => {
                     console.log(`Complete installing file ${fileName}`);
                     this.fetchUtInfos();
@@ -145,13 +151,15 @@ export class AppComponent {
     }
 
     private async fetchUtInfos(): Promise<void> {
-        try {
-            this.dataService.getUtInfos().subscribe({
-                next: (resp) => this.utInfosByIp = resp,
-                error: (err) => console.error('Failed to get files', err)
-            });
-        } catch (err) {
-            console.error('Failed to fetch UT statuses:', err);
-        }
+        this.dataService.getUtInfos().subscribe({
+            next: (resp) => this.utInfosByIp = resp,
+            error: (err) => {
+                this.onRequestError('Get UT Infos', err);
+            }
+        });
+    }
+
+    private onRequestError(requestAction: string, error: any): void {
+        console.error(`${requestAction} failed!. Error: `, error);
     }
 }

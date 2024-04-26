@@ -19,44 +19,35 @@ class SSHHelper:
         self.ssm_client: paramiko.SSHClient = paramiko.SSHClient()
         self.ssm_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.acu_client: Optional[paramiko.SSHClient] = None
-        self.exports_command: Optional[str] = None  # Sample: "/usr/local/bin:/opt/bin"
 
-    def connect_acu(self, connect_timeout_secs: int = 10) -> None:
+    def connect_acu(self, secs_timeout_per_connect, secs_total_connect_timeout: int) -> None:
         start_time: float = time.time()
         connected: bool = False
         while True:
-            elapsed_time = time.time() - start_time
-            if elapsed_time >= connect_timeout_secs:
-                break
-
             try:
-                if not connected:
-                    LOG(f"Attempting to connect to SSM... Elapsed time: {elapsed_time:.2f}s", flush=True)
-                    self.ssm_client.connect(self.ssm_info.ip, username=self.ssm_info.username,
-                                            password=self.ssm_info.password)
-                    transport: paramiko.Transport = self.ssm_client.get_transport()
-                    LOG("SSM connection established. Connecting to ACU...", flush=True)
-                    acu_channel: paramiko.Channel = transport.open_channel(
-                        "direct-tcpip", (self.acu_info.ip, 22), ('127.0.0.1', 2200))
-                    self.acu_client = paramiko.SSHClient()
-                    self.acu_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                    self.acu_client.connect('127.0.0.1', port=2200, username=self.acu_info.username,
-                                            password=self.acu_info.password, sock=acu_channel)
-                    connected = True
-                    break  # Exit loop on successful connection
+                elapsed_time = time.time() - start_time
+                if elapsed_time >= secs_total_connect_timeout:
+                    break
+                LOG(f"Attempting to connect to SSM... Elapsed time: {elapsed_time:.2f}s", flush=True)
+                self.ssm_client.connect(self.ssm_info.ip, username=self.ssm_info.username,
+                                        password=self.ssm_info.password, timeout=secs_timeout_per_connect)
+                transport: paramiko.Transport = self.ssm_client.get_transport()
+                LOG("SSM connection established. Connecting to ACU...", flush=True)
+                local_ip: str = '127.0.0.1'
+                default_port: int = 22
+                acu_channel: paramiko.Channel = transport.open_channel(
+                    "direct-tcpip", (self.acu_info.ip, 22), (local_ip, default_port), timeout=secs_timeout_per_connect)
+                self.acu_client = paramiko.SSHClient()
+                self.acu_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                self.acu_client.connect(local_ip, port=default_port, username=self.acu_info.username,
+                                        password=self.acu_info.password, sock=acu_channel, timeout=secs_timeout_per_connect)
+                connected = True
+                break
             except Exception as e:
-                delay_check_secs: int = 1
-                LOG(
-                    f"Error occurred: {e}, retrying in {delay_check_secs}s. Elapsed time: {elapsed_time:.2f}s / {connect_timeout_secs}s")
-                time.sleep(delay_check_secs)
+                LOG(f"Error occurred: {e}, Retrying connect now")
 
         if not connected:
             raise Exception("Failed to connect within the specified timeout period.")
-        else:
-            command_output: str = self.exec_command_acu("echo $PATH").strip()
-            paths: str = ':'.join(
-                filter(lambda p: p and "No such file or directory" not in p, command_output.split(':')))
-            self.exports_command: str = f"export PATH=$PATH:{paths}"
 
     def exec_command_acu(self, command: str, is_stream_output: bool = False) -> str:
         full_command: str = f"bash -l -c \"{command}\""  # Use this to make sure have same env as login

@@ -145,30 +145,10 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
         let latestLog: string = "";
 
         pythonProcess.stdout.on('data', (data: Buffer) => {
-            const logFullMsg = data.toString().trim();
-            // SAMPLE: TO_SERVER:THIS IS MY LOG
-            const index = logFullMsg.indexOf(':');
-            if (index === -1) {
-                //ALWAYS have to have ':'.Ex: "TO_ALL:This is my log"
-                console.error('Unexpected log message:', logFullMsg);
-                return;
-            }
-            const dest = logFullMsg.substring(0, index).trim();
-            const message = EscapePythonRepr(logFullMsg.substring(index + 1).trim());  // Skip over the ':' part
-            latestLog = message;
-            switch (dest) {
-                case 'TO_SERVER':
-                    console.log(message);
-                    break;
-                case 'TO_APP':
-                    sendEventResponse(message);
-                    break;
-                default:
-                    console.log(message);
-                    sendEventResponse(message);
-                    break;
-            }
-
+            const fullMsg = data.toString();
+            latestLog = fullMsg;
+            console.log(fullMsg);
+            sendEventResponse(fullMsg);
         });
 
         pythonProcess.stderr.on('data', (data: Buffer) => {

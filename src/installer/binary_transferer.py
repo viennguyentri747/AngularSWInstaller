@@ -1,5 +1,5 @@
 import hashlib
-from custom_log import LOG, ELogDest
+from custom_log import LOG
 from ssh_helper import SSHHelper
 import os
 
@@ -27,7 +27,7 @@ def _update_transfer_progress(_, total_size: int, sent: int) -> None:
     # Calculate the percentage of the file transferred
     percent_transferred = (float(sent) / float(total_size)) * 100 if total_size > 0 else 0
     LOG(
-        f"\rTransferring: {percent_transferred:.2f}% ({sent:.2f}/{total_size:.2f} {units[unit_index]})", flush=True, dest=ELogDest.TO_APP)
+        f"\rTransferring: {percent_transferred:.2f}% ({sent:.2f}/{total_size:.2f} {units[unit_index]})", flush=True)
 
 
 def _is_same_file(ssh_helper: SSHHelper, local_file_path: str, remote_file_path: str) -> bool:

@@ -2,7 +2,7 @@ import time
 from typing import Callable, Optional
 import paramiko
 from scp import SCPClient
-from custom_log import LOG, ELogDest
+from custom_log import LOG
 
 
 class RemoteInfo:
@@ -51,7 +51,7 @@ class SSHHelper:
 
     def exec_command_acu(self, command: str, is_stream_output: bool = False) -> str:
         full_command: str = f"bash -l -c \"{command}\""  # Use this to make sure have same env as login
-        LOG(f"Start command: \"{command}\"", dest=ELogDest.TO_SERVER)
+        LOG(f"Start command: \"{command}\"")
         # Exec return immediately in theory but may have some delay due to network ...
         stdin, stdout, stderr = self.acu_client.exec_command(full_command)
         # Show + capture outputs
@@ -65,9 +65,9 @@ class SSHHelper:
             output_lines.append(line)  # Store the line in the list
 
         exit_code: int = stdout.channel.recv_exit_status()  # Get exit status, this block until command exit.
-        LOG(f"Command \"{command}\" exit with code {exit_code}", flush=True, dest=ELogDest.TO_SERVER)
+        LOG(f"Command \"{command}\" exit with code {exit_code}", flush=True)
         if (exit_code != 0):
-            LOG(f"Command \"{command}\" failed", dest=ELogDest.TO_SERVER)
+            LOG(f"Command \"{command}\" failed")
             command_error: str = stderr.read().decode()
             raise Exception(f"Command error: {command_error}")
 

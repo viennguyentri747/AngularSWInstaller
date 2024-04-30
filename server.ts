@@ -153,7 +153,7 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
         utInfosByIp[utIp].status = EUtStatus.Installing;
         // Run install script
         const startTime = new Date().getTime();
-        const pythonProcess: ChildProcessWithoutNullStreams = spawn('python3', ['src/installer/test_install_sw.py',
+        const pythonProcess: ChildProcessWithoutNullStreams = spawn('python3', ['src/installer/install_sw.py',
             '-path', path.join(uploadsDir, fileName), '-ip', utIp, '-version', fileInfo.version]);
         let latestLog: string = "";
 

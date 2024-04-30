@@ -1,6 +1,6 @@
 import hashlib
-from custom_log import LOG
-from ssh_helper import SSHHelper
+from core.custom_logger import LOG
+from core.ssh_helper import SSHHelper
 import os
 
 

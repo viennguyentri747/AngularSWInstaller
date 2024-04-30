@@ -2,7 +2,7 @@ import time
 from typing import Callable, Optional
 import paramiko
 from scp import SCPClient
-from custom_log import LOG
+from core.custom_logger import LOG
 
 
 class RemoteInfo:

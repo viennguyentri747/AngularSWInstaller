@@ -1,5 +1,5 @@
-from ssh_helper import SSHHelper
-from binary_installer import InstallInfo, get_partition_number, get_rootfs
+from core.ssh_helper import SSHHelper
+from core.binary_installer import InstallInfo, get_partition_number, get_rootfs
 import re as regex
 
 

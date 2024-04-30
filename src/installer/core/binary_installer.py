@@ -1,5 +1,5 @@
-from custom_log import LOG
-from ssh_helper import SSHHelper
+from core.custom_logger import LOG
+from core.ssh_helper import SSHHelper
 import time
 
 
@@ -8,7 +8,7 @@ class InstallInfo:
         self.installed_rootfs: str = installed_rootfs
         self.installed_partition: str = installed_partition
         self.installed_version: str = installed_version
-    
+
     def __str__(self) -> str:
         return f"Rootfs: {self.installed_rootfs}, Partition: {self.installed_partition}, Version: {self.installed_version}"
 

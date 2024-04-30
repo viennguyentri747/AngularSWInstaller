@@ -1,11 +1,14 @@
 import os
-from custom_log import LOG
-from ssh_helper import SSHHelper, RemoteInfo
-from binary_transferer import transfer
-from binary_installer import InstallInfo, install
-from install_verifier import is_install_ok
+from core.custom_logger import LOG
+from core.ssh_helper import SSHHelper, RemoteInfo
+from core.binary_transferer import transfer
+from core.binary_installer import InstallInfo, install
+from core.install_verifier import is_install_ok
 import traceback
 import argparse
+
+LOG_TRANSFERRING = "[InstallSw.py] Transferring"
+LOG_INSTALLING = "[InstallSw.py] Installing"
 
 if __name__ == "__main__":
     try:
@@ -42,8 +45,11 @@ if __name__ == "__main__":
         ssh_helper: SSHHelper = SSHHelper(ssm_info, acu_info)
         ssh_helper.connect_acu(secs_timeout_per_connect=secs_timeout_per_connect,
                                total_secs_connect_timeout=total_secs_connect_timeout)
-
-        if transfer(ssh_helper, local_file_path=local_file_path, remote_file_path=remote_file_path, connect_timeout_secs=total_secs_connect_timeout):
+        LOG(LOG_TRANSFERRING)
+        is_transfer_success: bool = transfer(ssh_helper, local_file_path=local_file_path,
+                                             remote_file_path=remote_file_path, connect_timeout_secs=total_secs_connect_timeout)
+        if is_transfer_success:
+            LOG(LOG_INSTALLING)
             installed_info: InstallInfo = install(
                 ssh_helper, remote_installer_path=remote_file_path, target_version=target_version)
             ssh_helper.close_connections()

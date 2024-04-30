@@ -6,29 +6,8 @@ from binary_installer import InstallInfo, install
 from install_verifier import is_install_ok
 import traceback
 import argparse
-import time
-
-
-def format_time(seconds: int) -> str:
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
-    seconds = seconds % 60
-
-    # Build a list of time components that are non-zero
-    time_components = []
-    if hours:
-        time_components.append(f"{hours} hour{'s' if hours > 1 else ''}")
-    if minutes:
-        time_components.append(f"{minutes} minute{'s' if minutes > 1 else ''}")
-    if seconds or not time_components:
-        time_components.append(f"{seconds} second{'s' if seconds > 1 else ''}")
-
-    # Join all components with commas
-    return ', '.join(time_components)
-
 
 if __name__ == "__main__":
-    start_time: int = time.time()
     try:
         parser = argparse.ArgumentParser(prog='Install software', description='Prompt spibeam to verify readbacks')
         parser.add_argument('-path', '--bin_path', required=True,
@@ -74,8 +53,7 @@ if __name__ == "__main__":
                                    total_secs_connect_timeout=secs_reboot_timeout)
             is_ok: bool = is_install_ok(ssh_helper, installed_info=installed_info)
             install_result: str = "successful" if is_ok else "failed"
-            total_install_time: int = time.time() - start_time
-            LOG(f"The installation to target was {install_result}. Total time taken: {format_time(total_install_time)}. Install Target: {str(installed_info)}")
+            LOG(f"The installation to target was {install_result}. Install Target: {str(installed_info)}")
             if (is_ok):
                 exit(0)
         else:

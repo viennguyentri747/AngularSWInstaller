@@ -65,14 +65,14 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Choose file to install -->
             <div *ngIf="selectedInstallFile && hasUtInfos()" class="tab-content">
                 <div class="mt-3">
                     <strong>Choosen file for install:</strong> {{ selectedInstallFile }}<br>
                 </div>
             </div>
-            
+
             <!-- Table for UT Infos -->
             <table class="table table-fixed-horizontal">
                 <thead>
@@ -88,8 +88,8 @@
                         <td id="ip-col">{{ ut.value.ip }}</td>
                         <td id="status-col">{{ ut.value.status }}</td>
                         <td id="progress-col"
-                            title="{{ utLogsByIp[ut.value.ip] ? utLogsByIp[ut.value.ip] : 'Unknown' }}">
-                            {{ utLogsByIp[ut.value.ip] || 'No Data' }}
+                            title="{{ utInstallLogsByIp[ut.value.ip] ? utInstallLogsByIp[ut.value.ip] : 'Unknown' }}">
+                            {{ utInstallLogsByIp[ut.value.ip] || 'No Data' }}
                         </td>
                         <td id="install-col">
                             <button class="btn btn-primary"

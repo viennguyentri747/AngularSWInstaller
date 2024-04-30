@@ -42,9 +42,9 @@ if __name__ == "__main__":
                             help='ACU ip. Ex: 192.168.100.254', type=str, default='192.168.100.254')
         parser.add_argument('-secs_timeout_per_connect', "--secs_timeout_per_connect", required=False,
                             help='Connect timeout in secs for connect to acu, transfer file ... Ex: 3', type=int, default=3)
-        parser.add_argument('-secs_total_connect_timeout', "--secs_total_connect_timeout", required=False,
+        parser.add_argument('-total_secs_connect_timeout', "--total_secs_connect_timeout", required=False,
                             help='Connect timeout in secs for connect to acu, transfer file ... Ex: 10', type=int, default=10)
-        parser.add_argument('-reboot_timeout', "--reboot_timeout_secs", required=False,
+        parser.add_argument('-secs_reboot_timeout', "--secs_reboot_timeout", required=False,
                             help='Reboot time out in secs for verify. Ex: 600', type=int, default=600)
         args = parser.parse_args()
         local_file_path: str = args.bin_path
@@ -52,9 +52,9 @@ if __name__ == "__main__":
         ut_pw: str = args.ut_pw
         acu_ip: str = args.acu_ip
         target_version: str = args.target_version
-        total_secs_connect_timeout: str = args.secs_total_connect_timeout
+        total_secs_connect_timeout: str = args.total_secs_connect_timeout
         secs_timeout_per_connect: str = args.secs_timeout_per_connect
-        rebooot_timeout_secs: int = args.reboot_timeout_secs
+        secs_reboot_timeout: int = args.secs_reboot_timeout
 
         install_file_name: str = os.path.basename(local_file_path)
         remote_file_path: str = f"/vien/install/{install_file_name}"
@@ -62,19 +62,19 @@ if __name__ == "__main__":
         acu_info: RemoteInfo = RemoteInfo(acu_ip, 'root', '')
         ssh_helper: SSHHelper = SSHHelper(ssm_info, acu_info)
         ssh_helper.connect_acu(secs_timeout_per_connect=secs_timeout_per_connect,
-                               secs_total_connect_timeout=total_secs_connect_timeout)
+                               total_secs_connect_timeout=total_secs_connect_timeout)
 
         if transfer(ssh_helper, local_file_path=local_file_path, remote_file_path=remote_file_path, connect_timeout_secs=total_secs_connect_timeout):
             installed_info: InstallInfo = install(
                 ssh_helper, remote_installer_path=remote_file_path, target_version=target_version)
             ssh_helper.close_connections()
 
-            LOG("Install done -> Verifying ...", flush=True)
+            LOG("Install done -> Verifying after reboot...", flush=True)
             ssh_helper.connect_acu(secs_timeout_per_connect=secs_timeout_per_connect,
-                                   secs_total_connect_timeout=total_secs_connect_timeout)
+                                   total_secs_connect_timeout=secs_reboot_timeout)
             is_ok: bool = is_install_ok(ssh_helper, installed_info=installed_info)
-            total_install_time: int = time.time() - start_time
             install_result: str = "successful" if is_ok else "failed"
+            total_install_time: int = time.time() - start_time
             LOG(f"The installation to target was {install_result}. Total time taken: {format_time(total_install_time)}. Install Target: {str(installed_info)}")
             if (is_ok):
                 exit(0)

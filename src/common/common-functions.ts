@@ -4,9 +4,14 @@ export async function CalculateChecksum(file: File): Promise<string> {
     return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-export function IsFileOkToUpload(file: File): boolean {
+export function IsFileOkToInstall(fileName: string): boolean {
     // TODO: Check format (Ex: .iesa with version ...)
-    return true;
+    const extensionList = ['.iesa']; // Add your desired extensions here
+    const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
+    if (extensionList.includes(fileExtension)) {
+        return true;
+    }
+    return false;
 }
 
 export function GetFileVersion(filename: string): string {
@@ -18,4 +23,22 @@ export function GetFileVersion(filename: string): string {
     }
 
     return "Unknown Version";
+}
+
+export function CompareVersions(versionA: string, versionB: string): number {
+  const partsA = versionA.split('.').map(Number); //numbers in version. Ex: 0.9.5 -> [0,9,5]
+  const partsB = versionB.split('.').map(Number);
+
+  for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
+    const partA = partsA[i] || 0; //0 is default value if cannot detect
+    const partB = partsB[i] || 0;
+
+    if (partA < partB) {
+      return -1;
+    } else if (partA > partB) {
+      return 1;
+    }
+  }
+
+  return 0;
 }

@@ -24,7 +24,6 @@ def _update_transfer_progress(_, total_size: int, sent: int) -> None:
         sent /= 1024
         unit_index += 1
 
-    # Calculate the percentage of the file transferred
     percent_transferred = (float(sent) / float(total_size)) * 100 if total_size > 0 else 0
     LOG(
         f"\rTransferring: {percent_transferred:.2f}% ({sent:.2f}/{total_size:.2f} {units[unit_index]})", flush=True)

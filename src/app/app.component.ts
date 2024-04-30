@@ -17,7 +17,7 @@ import { IsFileOkToInstall, CalculateChecksum } from 'src/common/common-function
 export class AppComponent {
     @ViewChild('fileUploadInput') fileUploadInputRef!: ElementRef; //'!' to inform type script that variable will be initialized
     utInfosByIp: { [ip: string]: UTInfo } = {}; // Key: ut_ip
-    utLogsByIp: { [ip: string]: string } = {}; // Key: ut_ip
+    utInstallLogsByIp: { [ip: string]: string } = {}; // Key: ut_ip
     uploadedFileInfos: Array<InstallFileInfo> = []
     title = 'ng_sw_installer';
     selectedInstallFile: string | null = null;  // Changed to string to hold the file name
@@ -25,10 +25,17 @@ export class AppComponent {
     isUploading: boolean = false;
     uploadProgress: number = 0;
     currentTab: string = 'existing';
-    currentInstallLog: string = '';
     isReadyToInstall: boolean = false;
 
     constructor(private dataService: DataService) {
+        this.FetchAllData();
+
+        setInterval(() => {
+            this.FetchAllData();
+        }, 1000);
+    }
+
+    private FetchAllData(): void {
         this.fetchAvailableFiles();
         this.fetchUtInfos();
     }
@@ -129,18 +136,16 @@ export class AppComponent {
             console.error("Can't find ut info");
         }
 
-        this.utInfosByIp[utIp].status = EUtStatus.Installing;
         this.dataService.installFile(fileName, utIp).subscribe(
             {
                 next: (resp) => {
                     if (resp) {
                         const installLog = JSON.parse(resp);
-                        this.utLogsByIp[utIp] = installLog;
+                        this.utInstallLogsByIp[utIp] = installLog;
                     }
                 },
                 error: (err) => {
                     this.onRequestError('Install files', err);
-                    this.utInfosByIp[utIp].status = EUtStatus.Idle;
                 },
                 complete: () => {
                     console.log(`Complete installing file ${fileName}`);
@@ -155,6 +160,7 @@ export class AppComponent {
             next: (resp) => this.utInfosByIp = resp,
             error: (err) => {
                 this.onRequestError('Get UT Infos', err);
+                this.utInstallLogsByIp = {}
             }
         });
     }
@@ -162,4 +168,6 @@ export class AppComponent {
     private onRequestError(requestAction: string, error: any): void {
         console.error(`${requestAction} failed!. Error: `, error);
     }
+
+
 }

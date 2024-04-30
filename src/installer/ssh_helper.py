@@ -20,13 +20,13 @@ class SSHHelper:
         self.ssm_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.acu_client: Optional[paramiko.SSHClient] = None
 
-    def connect_acu(self, secs_timeout_per_connect, secs_total_connect_timeout: int) -> None:
+    def connect_acu(self, secs_timeout_per_connect, total_secs_connect_timeout: int) -> None:
         start_time: float = time.time()
         connected: bool = False
         while True:
             try:
                 elapsed_time = time.time() - start_time
-                if elapsed_time >= secs_total_connect_timeout:
+                if elapsed_time >= total_secs_connect_timeout:
                     break
                 LOG(f"Attempting to connect to SSM... Elapsed time: {elapsed_time:.2f}s", flush=True)
                 self.ssm_client.connect(self.ssm_info.ip, username=self.ssm_info.username,

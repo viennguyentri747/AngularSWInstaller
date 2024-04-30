@@ -4,7 +4,7 @@ import bodyParser from 'body-parser';
 import path from 'path';
 import fs from 'fs';
 import { CONFIG, SERVER_CONFIG } from '@common/common_config';
-import { GetFileVersion, IsFileOkToInstall } from 'src/common/common-functions';
+import { GetFileVersion, IsFileOkToInstall, CompareVersions } from 'src/common/common-functions';
 import { UTInfo, EUtStatus, InstallFileInfo } from '@common/common-model'
 import crypto from 'crypto'; // Include crypto module for hashing\
 import { FileExistenceResponse, InstallFilesResponse, UTInfosResponse } from 'src/common/common-response';
@@ -31,7 +31,6 @@ const storage: multer.StorageEngine = multer.diskStorage({
     }
 });
 const upload: multer.Multer = multer({ storage: storage });
-
 let existingHashes: CheckSumHashTable = {};  // This now explicitly tells TypeScript the structure of existingHashes
 let availableUts: Array<string> = ["192.168.100.64", "192.168.100.65", "172.16.20.97", "192.168.100.67", "192.168.100.1"];
 let utInfosByIp: { [ip: string]: UTInfo } = {};
@@ -42,9 +41,6 @@ let fileInfos: Array<InstallFileInfo> = []
 
 // Middleware
 app.use(bodyParser.json());
-// app.use(bodyParser.urlencoded({
-//     extended: true,
-// }));
 app.use(express.static(path.join(__dirname, 'src')));
 
 // Check if the uploads directory exists, and create it if it doesn’t
@@ -55,6 +51,7 @@ if (!fs.existsSync(uploadsDir)) {
 
 // Read all files to init data (existing hashes, fileInfos) on startup
 reloadFilesData();
+
 function reloadFilesData(): void {
     fs.readdir(uploadsDir, async (err, fileNames) => {
         if (err) {
@@ -63,17 +60,22 @@ function reloadFilesData(): void {
 
         fileInfos = [];
         for (let fileName of fileNames) {
-            const filePath = path.join(uploadsDir, fileName);
+            if (!IsFileOkToInstall(fileName)) {
+                continue;
+            }
 
+            const filePath = path.join(uploadsDir, fileName);
             const fileHash = await calculateHash(filePath);
             existingHashes[fileHash] = true;
 
             // TODO: fetch latest version from GITLAB
-            addNewFileInfo(fileName)
+            addNewFileInfo(fileName);
         }
-    });
+    }
+    );
 }
 
+// ====================== HANDLING REQUESTS ======================
 // Check files exists request
 app.post(CONFIG.apiPaths.checkFileExists, (req, res) => {
     const { hash } = req.body;
@@ -102,13 +104,17 @@ app.post(CONFIG.apiPaths.uploadFile, upload.single('file'), async (req, res) => 
 
 function addNewFileInfo(fileName: string): void {
     const fileVersion = GetFileVersion(fileName)
-    const isLatestVersion = fileVersion == CONFIG.installerVersion.latest
     const fileInfo: InstallFileInfo = {
         fileName: fileName,
         version: fileVersion,
-        isLatestVersion: isLatestVersion
+        isLatestVersion: false
     };
     fileInfos.push(fileInfo);
+    fileInfos.sort((a, b) => CompareVersions(b.version, a.version));
+    const latestVersionIndex = 0;  //Bigger version stand first
+    fileInfos.forEach((fileInfo, index) => {
+        fileInfo.isLatestVersion = (index === latestVersionIndex);
+    });
 }
 
 // Function to calculate hash of file content
@@ -146,6 +152,7 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
 
         utInfosByIp[utIp].status = EUtStatus.Installing;
         // Run install script
+        const startTime = new Date().getTime();
         const pythonProcess: ChildProcessWithoutNullStreams = spawn('python3', ['src/installer/test_install_sw.py',
             '-path', path.join(uploadsDir, fileName), '-ip', utIp, '-version', fileInfo.version]);
         let latestLog: string = "";
@@ -159,18 +166,25 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
 
         pythonProcess.stderr.on('data', (data: Buffer) => {
             const error = data.toString();
+            latestLog = error;
             console.log(`Latest error: ${error}`);
         });
 
         //On process completed (can be error/no error)
         pythonProcess.on('close', (code: number) => {
+            const totalTime = new Date().getTime() - startTime;
+            const hours = Math.floor(totalTime / 3600000);
+            const minutes = Math.floor((totalTime % 3600000) / 60000);
+            const seconds = Math.floor((totalTime % 60000) / 1000);
+            const totalTimeStr = `Total time elapsed: ${hours} hours, ${minutes} minutes, ${seconds} seconds`;
+
             console.log(`Python script completed with code ${code}.`);
             const isInstallSuccess: boolean = (code == 0);
             utInfosByIp[utIp].status = isInstallSuccess ? EUtStatus.Idle : EUtStatus.Error;
             if (isInstallSuccess) {
-                sendEventResponse(`Install Succeeded!`, CONFIG.serverMessageVars.completeEvent);
+                sendEventResponse(`Install Success!. ${totalTimeStr}`, CONFIG.serverMessageVars.completeEvent);
             } else {
-                sendEventResponse(`Install Failed. Latest log = ${latestLog}`, CONFIG.serverMessageVars.completeEvent);
+                sendEventResponse(`Install Failed!. Latest log = ${latestLog}. ${totalTimeStr}`, CONFIG.serverMessageVars.completeEvent);
             }
         });
 
@@ -188,6 +202,24 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
     };
 });
 
+function sendErrRequestResponse(res: express.Response, errorCode: number, errorMessage: string): express.Response {
+    return res.status(errorCode).json({ error: errorMessage });
+}
+
+// app.get(CONFIG.apiPaths.cancelInstall, (req: Request, res: Response) => {
+//   const utIp = req.query[CONFIG.requestObjectKeys.utIpAddress] as string;
+//   const pythonProcess = utInfosByIp[utIp].pythonProcess;
+//   if (pythonProcess) {
+//     pythonProcess.kill();
+//     utInfosByIp[utIp].status = EUtStatus.Idle;
+//     res.json({ message: 'Installation process cancelled successfully' });
+//   } else {
+//     res.json({ message: 'No installation process found for the specified UT IP address' });
+
+
+//   }
+// });
+
 
 app.get(CONFIG.apiPaths.getUtsInfos, (req, res) => {
     res.json({ utInfosByIp: utInfosByIp } as UTInfosResponse);
@@ -200,7 +232,3 @@ app.get('*', (req: express.Request, res: express.Response) => {
 app.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`);
 });
-
-function sendErrRequestResponse(res: express.Response, errorCode: number, errorMessage: string): express.Response {
-    return res.status(errorCode).json({ error: errorMessage });
-}

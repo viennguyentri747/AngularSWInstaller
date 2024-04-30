@@ -6,7 +6,7 @@ export const CONFIG = {
         installFile: "/install",
         getUtsInfos: "/get_ut_infos"
     },
-    requestObjectKeys:{
+    requestObjectKeys: {
         utIpAddress: "utIp",
         installFileName: "installFileName"
     },
@@ -15,12 +15,26 @@ export const CONFIG = {
         completeEvent: "complete",
         progressEvent: "progress"
     },
-    storagePaths:{
+    storagePaths: {
         upload: "storage/upload",
         download: "storage/download"
-    },
-    installerVersion:{
-        latest: "0.9.8.4"
+    }
+};
+
+export const SERVER_CONFIG = {
+    status_code: {
+        success: 200,
+        notFound: 404,
+        internalServerError: 500,
+        unauthorized: 401,
+        badRequest: 400
+    }
+};
+
+export const CLIENT_CONFIG = {
+    duration: {
+        requestTimeoutMs: 2000,
+        utInfoFetchMs: 1000,
     }
 };
 

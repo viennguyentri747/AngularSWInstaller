@@ -8,6 +8,10 @@ export interface InstallFilesResponse {
     fileInfos: Array<InstallFileInfo>;
 }
 
+export interface CancelTransferResponse {
+    message: string;
+}
+
 export interface UTInfosResponse {
     utInfosByIp: { [ip: string]: UTInfo };
 }

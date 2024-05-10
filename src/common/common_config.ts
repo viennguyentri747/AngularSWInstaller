@@ -4,7 +4,8 @@ export const CONFIG = {
         uploadFile: "/upload_file",
         getExistingFileInfos: "/get_existing_file_infos",
         installFile: "/install",
-        getUtsInfos: "/get_ut_infos"
+        getUtsInfos: "/get_ut_infos",
+        cancelTranfer: "/cancel_transfer"
     },
     requestObjectKeys: {
         utIpAddress: "utIp",

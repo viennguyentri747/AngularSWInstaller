@@ -126,17 +126,39 @@ table {
 
 .table-fixed-horizontal th#progress-col,
 .table-fixed-horizontal td#progress-col {
-    width: 64%;
+    width: 60%;
     /* Example width for progress column */
 }
 
 .table-fixed-horizontal th#install-col,
 .table-fixed-horizontal td#install-col {
-    width: 10%;
+    width: 16%;
 }
 
 .table-fixed-horizontal td#install-col button {
     margin: auto;
     /* This can help override any default styles that might affect centering */
     display: block;
+}
+
+
+.btn-group {
+    display: flex;
+}
+
+/* CSS to add spacing between buttons */
+.btn-primary {
+    background-color: blue;
+    margin-right: 10px; /* Add right margin to the Install button */
+}
+
+/* If you want to ensure spacing is uniform regardless of button order */
+.btn-group button {
+    margin-right: 5px; /* Adds margin to the right of each button */
+}
+
+.btn-danger {
+    background-color: orangered;
+    color: white;
+    border-color: orangered;
 }

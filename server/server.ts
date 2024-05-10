@@ -7,7 +7,7 @@ import { CONFIG, SERVER_CONFIG } from '@common/common_config';
 import { GetFileVersion, IsFileOkToInstall, CompareVersions } from 'src/common/common-functions';
 import { UTInfo, EUtStatus, InstallFileInfo } from '@common/common-model'
 import crypto from 'crypto'; // Include crypto module for hashing\
-import { FileExistenceResponse, InstallFilesResponse, UTInfosResponse } from 'src/common/common-response';
+import { CancelTransferResponse, FileExistenceResponse, InstallFilesResponse, UTInfosResponse } from 'src/common/common-response';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 
 const app: express.Application = express();
@@ -19,29 +19,28 @@ interface CheckSumHashTable {
 const cors = require('cors');
 app.use(cors());
 // Multer config for file upload
-const storage: multer.StorageEngine = multer.diskStorage({
+const diskStorage: multer.StorageEngine = multer.diskStorage({
     // A string or function that determines the destination path for uploaded files
     destination: function (req: express.Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) {
         cb(null, uploadsDir)
     },
     // A string or function that determines file name
     filename: function (req: express.Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) {
-        // cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname))
         cb(null, file.originalname)  // Use original file name
     }
 });
-const upload: multer.Multer = multer({ storage: storage });
+const upload: multer.Multer = multer({ storage: diskStorage });
 let existingHashes: CheckSumHashTable = {};  // This now explicitly tells TypeScript the structure of existingHashes
 let availableUts: Array<string> = ["192.168.100.64", "192.168.100.65", "172.16.20.97", "192.168.100.67", "192.168.100.1"];
 let utInfosByIp: { [ip: string]: UTInfo } = {};
 availableUts.forEach(ip => {
     utInfosByIp[ip] = { ip: ip, status: EUtStatus.Idle };
 });
+let installProcessesByUtIp: { [ip: string]: ChildProcessWithoutNullStreams } = {};
 let fileInfos: Array<InstallFileInfo> = []
 
 // Middleware
-app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'src')));
+app.use(bodyParser.json()); //Allow handle json in body request
 
 // Check if the uploads directory exists, and create it if it doesn’t
 const uploadsDir: string = path.join(__dirname, CONFIG.storagePaths.upload);
@@ -150,28 +149,36 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
             throw new Error("File is not ok to install");
         }
 
-        utInfosByIp[utIp].status = EUtStatus.Installing;
         // Run install script
         const startTime = new Date().getTime();
-        const pythonProcess: ChildProcessWithoutNullStreams = spawn('python3', ['src/installer/install_sw.py',
+        const installProcess: ChildProcessWithoutNullStreams = spawn('python3', ['src/installer/install_sw.py',
             '-path', path.join(uploadsDir, fileName), '-ip', utIp, '-version', fileInfo.version]);
+        installProcessesByUtIp[utIp] = installProcess;
         let latestLog: string = "";
 
-        pythonProcess.stdout.on('data', (data: Buffer) => {
+        const LOG_TRANSFERRING = "[InstallSw.py] Transferring";
+        const LOG_INSTALLING = "[InstallSw.py] Installing";
+        installProcess.stdout.on('data', (data: Buffer) => {
             const fullMsg = data.toString();
-            latestLog = fullMsg;
-            console.log(fullMsg);
-            sendEventResponse(fullMsg);
+            if (fullMsg.startsWith(LOG_TRANSFERRING)) {
+                utInfosByIp[utIp].status = EUtStatus.Transferring;
+            } else if (fullMsg.startsWith(LOG_INSTALLING)) {
+                utInfosByIp[utIp].status = EUtStatus.Installing;
+            } else {
+                latestLog = fullMsg;
+                console.log(fullMsg);
+                sendEventResponse(fullMsg);
+            }
         });
 
-        pythonProcess.stderr.on('data', (data: Buffer) => {
+        installProcess.stderr.on('data', (data: Buffer) => {
             const error = data.toString();
             latestLog = error;
             console.log(`Latest error: ${error}`);
         });
 
         //On process completed (can be error/no error)
-        pythonProcess.on('close', (code: number) => {
+        installProcess.on('close', (code: number) => {
             const totalTime = new Date().getTime() - startTime;
             const hours = Math.floor(totalTime / 3600000);
             const minutes = Math.floor((totalTime % 3600000) / 60000);
@@ -181,6 +188,7 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
             console.log(`Python script completed with code ${code}.`);
             const isInstallSuccess: boolean = (code == 0);
             utInfosByIp[utIp].status = isInstallSuccess ? EUtStatus.Idle : EUtStatus.Error;
+            delete installProcessesByUtIp[utIp];
             if (isInstallSuccess) {
                 sendEventResponse(`Install Success!. ${totalTimeStr}`, CONFIG.serverMessageVars.completeEvent);
             } else {
@@ -202,23 +210,22 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
     };
 });
 
-function sendErrRequestResponse(res: express.Response, errorCode: number, errorMessage: string): express.Response {
-    return res.status(errorCode).json({ error: errorMessage });
-}
+app.get(CONFIG.apiPaths.cancelTranfer, (req, res) => {
+    const utIp = req.query[CONFIG.requestObjectKeys.utIpAddress] as string;
+    const utInfo = utInfosByIp[utIp];
+    if (utInfo && utInfo.status === EUtStatus.Transferring) {
+        const pythonProcess = installProcessesByUtIp[utIp];
+        if (pythonProcess) {
+            pythonProcess.kill();
+            utInfosByIp[utIp].status = EUtStatus.Idle;
+            delete installProcessesByUtIp[utIp];
+            res.json({ message: 'Cancel transfer success!' } as CancelTransferResponse);
+            return;
+        }
+    }
 
-// app.get(CONFIG.apiPaths.cancelInstall, (req: Request, res: Response) => {
-//   const utIp = req.query[CONFIG.requestObjectKeys.utIpAddress] as string;
-//   const pythonProcess = utInfosByIp[utIp].pythonProcess;
-//   if (pythonProcess) {
-//     pythonProcess.kill();
-//     utInfosByIp[utIp].status = EUtStatus.Idle;
-//     res.json({ message: 'Installation process cancelled successfully' });
-//   } else {
-//     res.json({ message: 'No installation process found for the specified UT IP address' });
-
-
-//   }
-// });
+    sendErrRequestResponse(res, SERVER_CONFIG.status_code.internalServerError, "Cannot cancel transfer");
+});
 
 
 app.get(CONFIG.apiPaths.getUtsInfos, (req, res) => {
@@ -229,6 +236,11 @@ app.get('*', (req: express.Request, res: express.Response) => {
     res.sendFile(path.join(__dirname, 'src/index.html'));
 });
 
-app.listen(port, () => {
+function sendErrRequestResponse(res: express.Response, errorCode: number, errorMessage: string): express.Response {
+    return res.status(errorCode).json({ error: errorMessage });
+}
+
+//Start the server at target port
+app.listen(port, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${port}`);
 });

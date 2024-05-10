@@ -3,7 +3,7 @@ import { Injectable, NgZone } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CONFIG, CLIENT_CONFIG } from '@common/common_config';
 import { InstallFileInfo } from '@common/common-model';
-import { FileExistenceResponse, InstallFilesResponse, UTInfosResponse as UTInfosResponse } from '@common/common-response'
+import { FileExistenceResponse, InstallFilesResponse, UTInfosResponse, CancelTransferResponse } from '@common/common-response'
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { HttpEvent } from '@angular/common/http';
@@ -34,6 +34,18 @@ export class DataService {
                 console.log(response);
                 return response.utInfosByIp;
             }));
+    }
+
+    public cancelTransfer(utIpAddress: string): Observable<string> {
+        const queryParams = new URLSearchParams({ [CONFIG.requestObjectKeys.utIpAddress]: utIpAddress });
+        const url = `${CONFIG.apiPaths.cancelTranfer}?${queryParams.toString()}`;
+        return this.http.get<CancelTransferResponse>(url).pipe(
+            timeout(CLIENT_CONFIG.duration.requestTimeoutMs),
+            map((response: CancelTransferResponse) => {
+                console.log(response.message);
+                return response.message;
+            })
+        );
     }
 
     public checkFileExists(hash: String): Observable<boolean> {
@@ -97,3 +109,5 @@ export class DataService {
         });
     }
 }
+
+

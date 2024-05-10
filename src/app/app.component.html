@@ -92,9 +92,14 @@
                             {{ utInstallLogsByIp[ut.value.ip] || 'No Data' }}
                         </td>
                         <td id="install-col">
-                            <button class="btn btn-primary"
-                                (click)="selectedInstallFile && installFile(selectedInstallFile, ut.value.ip)"
-                                [disabled]="ut.value.status === 'Installing' || !selectedInstallFile">Install</button>
+                            <div class="btn-group">
+                                <button class="btn btn-primary"
+                                    (click)="selectedInstallFile && installFile(selectedInstallFile, ut.value.ip)"
+                                    [disabled]="ut.value.status === 'Installing' || !selectedInstallFile">Install</button>
+                                <button class="btn btn-danger"
+                                    (click)="cancelTransfer(ut.value.ip)"
+                                    [disabled]="ut.value.status !== 'Transferring' || !selectedInstallFile">Cancel</button>
+                            </div>
                         </td>
                     </tr>
                 </tbody>

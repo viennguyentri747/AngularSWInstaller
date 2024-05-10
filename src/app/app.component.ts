@@ -132,10 +132,6 @@ export class AppComponent {
     }
 
     public installFile(fileName: string, utIp: string): void {
-        if (!(utIp in this.utInfosByIp)) {
-            console.error("Can't find ut info");
-        }
-
         this.dataService.installFile(fileName, utIp).subscribe(
             {
                 next: (resp) => {
@@ -151,6 +147,16 @@ export class AppComponent {
                     console.log(`Complete installing file ${fileName}`);
                     this.fetchUtInfos();
                 },
+            }
+        )
+    }
+
+    public cancelTransfer(utIp: string): void {
+        this.dataService.cancelTransfer(utIp).subscribe(
+            {
+                error: (err) => {
+                    this.onRequestError('Cancel transfer', err);
+                }
             }
         )
     }

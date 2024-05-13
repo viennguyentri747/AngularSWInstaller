@@ -39,12 +39,15 @@ export class AppComponent {
         setInterval(() => {
             this.fetchAllData();
         }, 1000);
+
+        setInterval(() => {
+            this.fetchGitBuildReleaseJobs();
+        }, 60000);
     }
 
     private fetchAllData(): void {
         this.fetchAvailableFiles();
         this.fetchUtInfos();
-        this.fetchGitBuildReleaseJobs();
     }
 
     public hasUtInfos(): boolean {
@@ -164,6 +167,10 @@ export class AppComponent {
         this.fetchUtInfos();
     }
 
+    public canInstall(utInfo: UTInfo) {
+        return this.selectedInstallFile && (utInfo.status === EUtStatus.Idle || utInfo.status == EUtStatus.Error);
+    }
+
     public installFile(fileName: string, utIp: string): void {
         this.dataService.installFile(fileName, utIp).subscribe(
             {
@@ -184,6 +191,11 @@ export class AppComponent {
         )
     }
 
+    public canCancelTransfer(utInfo: UTInfo) {
+        console.log(`AAA ${utInfo.status}`);
+        return (utInfo.status === EUtStatus.Connecting || utInfo.status === EUtStatus.Transferring);
+    }
+
     public cancelTransfer(utIp: string): void {
         this.dataService.cancelTransfer(utIp).subscribe(
             {
@@ -196,7 +208,13 @@ export class AppComponent {
 
     private async fetchUtInfos(): Promise<void> {
         this.dataService.getUtInfos().subscribe({
-            next: (resp) => this.utInfosByIp = resp,
+            next: (resp) =>{
+                this.utInfosByIp = resp;
+                Object.values(this.utInfosByIp).forEach(element => {
+                    console.log(element.ip + "   " + element.status)
+                    // Code to be executed for each element
+                });
+            } ,
             error: (err) => {
                 this.onRequestError('Get UT Infos', err);
                 this.utInstallLogsByIp = {}

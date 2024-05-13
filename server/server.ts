@@ -156,20 +156,30 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
         installProcessesByUtIp[utIp] = installProcess;
         let latestLog: string = "";
 
+        const LOG_CONNECTING = "[InstallSw.py] Connecting";
         const LOG_TRANSFERRING = "[InstallSw.py] Transferring";
         const LOG_INSTALLING = "[InstallSw.py] Installing";
         installProcess.stdout.on('data', (data: Buffer) => {
             const fullMsg = data.toString();
-            if (fullMsg.startsWith(LOG_TRANSFERRING)) {
-                utInfosByIp[utIp].status = EUtStatus.Transferring;
+            if (fullMsg.startsWith(LOG_CONNECTING)) {
+                onStatusChange(utIp, EUtStatus.Connecting)
+            }
+            else if (fullMsg.startsWith(LOG_TRANSFERRING)) {
+                onStatusChange(utIp, EUtStatus.Transferring);
             } else if (fullMsg.startsWith(LOG_INSTALLING)) {
-                utInfosByIp[utIp].status = EUtStatus.Installing;
+                onStatusChange(utIp, EUtStatus.Installing);
             } else {
+                //NORMAL LOG, not status code
                 latestLog = fullMsg;
                 console.log(fullMsg);
                 sendEventResponse(fullMsg);
             }
         });
+
+        const onStatusChange = (utIp: string, status: EUtStatus) => {
+            utInfosByIp[utIp].status = status;
+            console.log(`Update ip ${utIp} to status ${status}`);
+        }
 
         installProcess.stderr.on('data', (data: Buffer) => {
             const error = data.toString();
@@ -213,14 +223,17 @@ app.get(CONFIG.apiPaths.installFile, (req, res) => {
 app.get(CONFIG.apiPaths.cancelTranfer, (req, res) => {
     const utIp = req.query[CONFIG.requestObjectKeys.utIpAddress] as string;
     const utInfo = utInfosByIp[utIp];
-    if (utInfo && utInfo.status === EUtStatus.Transferring) {
-        const pythonProcess = installProcessesByUtIp[utIp];
-        if (pythonProcess) {
-            pythonProcess.kill();
-            utInfosByIp[utIp].status = EUtStatus.Idle;
-            delete installProcessesByUtIp[utIp];
-            res.json({ message: 'Cancel transfer success!' } as CancelTransferResponse);
-            return;
+    if (utInfo) {
+        const canCancle: boolean = utInfo.status === EUtStatus.Transferring || utInfo.status === EUtStatus.Connecting;
+        if (canCancle) {
+            const pythonProcess = installProcessesByUtIp[utIp];
+            if (pythonProcess) {
+                pythonProcess.kill();
+                utInfosByIp[utIp].status = EUtStatus.Idle;
+                delete installProcessesByUtIp[utIp];
+                res.json({ message: 'Cancel transfer success!' } as CancelTransferResponse);
+                return;
+            }
         }
     }
 

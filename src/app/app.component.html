@@ -95,10 +95,9 @@
                             <div class="btn-group">
                                 <button class="btn btn-primary"
                                     (click)="selectedInstallFile && installFile(selectedInstallFile, ut.value.ip)"
-                                    [disabled]="ut.value.status === 'Installing' || !selectedInstallFile">Install</button>
-                                <button class="btn btn-danger"
-                                    (click)="cancelTransfer(ut.value.ip)"
-                                    [disabled]="ut.value.status !== 'Transferring' || !selectedInstallFile">Cancel</button>
+                                    [disabled]="!canInstall(ut.value)">Install</button>
+                                <button class="btn btn-danger" (click)="cancelTransfer(ut.value.ip)"
+                                    [disabled]="!canCancelTransfer(ut.value)">Cancel</button>
                             </div>
                         </td>
                     </tr>

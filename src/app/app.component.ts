@@ -7,6 +7,10 @@ import { FileSizePipe } from './file-size.pipe';
 import { CommonModule } from '@angular/common';
 import { EUtStatus, UTInfo, InstallFileInfo } from '@common/common-model'
 import { IsFileOkToInstall, CalculateChecksum } from 'src/common/common-functions';
+import { GitJob } from 'src/git_helper/git_job';
+import { GetGitJobsUntilCutoff } from 'src/git_helper/git_job_fetcher';
+import { environment } from './../environments/environment';
+
 @Component({
     selector: 'app-root',
     standalone: true,
@@ -19,6 +23,8 @@ export class AppComponent {
     utInfosByIp: { [ip: string]: UTInfo } = {}; // Key: ut_ip
     utInstallLogsByIp: { [ip: string]: string } = {}; // Key: ut_ip
     uploadedFileInfos: Array<InstallFileInfo> = []
+    totalExtraMonthGetJobs: number = 1 //0 = get current month only
+    releaseJobs: Array<GitJob> = []
     title = 'ng_sw_installer';
     selectedInstallFile: string | null = null;  // Changed to string to hold the file name
     selectedUploadFile: File | null = null;
@@ -28,16 +34,17 @@ export class AppComponent {
     isReadyToInstall: boolean = false;
 
     constructor(private dataService: DataService) {
-        this.FetchAllData();
+        this.fetchAllData();
 
         setInterval(() => {
-            this.FetchAllData();
+            this.fetchAllData();
         }, 1000);
     }
 
-    private FetchAllData(): void {
+    private fetchAllData(): void {
         this.fetchAvailableFiles();
         this.fetchUtInfos();
+        this.fetchGitBuildReleaseJobs();
     }
 
     public hasUtInfos(): boolean {
@@ -114,6 +121,32 @@ export class AppComponent {
         this.selectedUploadFile = null;
         this.uploadProgress = 0;
         this.fileUploadInputRef.nativeElement.value = "";
+    }
+
+    private async fetchGitBuildReleaseJobs(): Promise<void> {
+        this.releaseJobs = [];
+        let retryCount = 3;
+        while (retryCount > 0) {
+            try {
+                const jobs: Array<GitJob> = await GetGitJobsUntilCutoff(environment.gitAccessKey, this.totalExtraMonthGetJobs);
+                this.releaseJobs = jobs.filter(job => {
+                    if (job.name !== 'package_oneweb_core_apps_release') {
+                        return false;
+                    }
+                    if (job.ref !== 'master') {
+                        return false;
+                    }
+                    return true;
+                });
+                break; // Exit the loop if successful
+            } catch (error) {
+                console.error('Error fetching Git build release jobs:', error);
+                retryCount--;
+                if (retryCount > 0) {
+                    console.log('Retrying now ...')
+                }
+            }
+        }
     }
 
     private fetchAvailableFiles(): void {

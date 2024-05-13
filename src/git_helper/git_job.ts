@@ -1,4 +1,9 @@
-// Job.ts
+type User = {
+    id: number;
+    username: string;
+    name: string;
+};
+
 export class GitJob {
     id: number;
     status: string;
@@ -14,7 +19,7 @@ export class GitJob {
     erased_at: Date | null;
     duration: number;
     queued_duration: number;
-    user: any;  // Consider defining a more specific type
+    user: User;  // Consider defining a more specific type
     commit: any;  // Consider defining a more specific type
     pipeline: any;  // Consider defining a more specific type
     web_url: string;
@@ -40,7 +45,11 @@ export class GitJob {
         this.erased_at = data.erased_at ? new Date(data.erased_at) : null;
         this.duration = data.duration;
         this.queued_duration = data.queued_duration;
-        this.user = data.user;
+        this.user = {
+            id: data.user.id,
+            username: data.user.username,
+            name: data.user.name
+        };
         this.commit = data.commit;
         this.pipeline = data.pipeline;
         this.web_url = data.web_url;

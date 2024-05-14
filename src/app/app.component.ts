@@ -192,7 +192,6 @@ export class AppComponent {
     }
 
     public canCancelTransfer(utInfo: UTInfo) {
-        console.log(`AAA ${utInfo.status}`);
         return (utInfo.status === EUtStatus.Connecting || utInfo.status === EUtStatus.Transferring);
     }
 
@@ -210,10 +209,9 @@ export class AppComponent {
         this.dataService.getUtInfos().subscribe({
             next: (resp) =>{
                 this.utInfosByIp = resp;
-                Object.values(this.utInfosByIp).forEach(element => {
-                    console.log(element.ip + "   " + element.status)
-                    // Code to be executed for each element
-                });
+                // Object.values(this.utInfosByIp).forEach(element => {
+                //     console.log(element.ip + "   " + element.status)
+                // });
             } ,
             error: (err) => {
                 this.onRequestError('Get UT Infos', err);

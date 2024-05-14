@@ -5,6 +5,7 @@ export interface UTInfo {
 
 export enum EUtStatus {
     Idle = 'Idle',
+    Connecting = 'Connecting',
     Transferring = 'Transferring',
     Installing = 'Installing',
     Error = 'Error'

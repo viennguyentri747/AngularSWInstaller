@@ -7,6 +7,7 @@ from core.install_verifier import is_install_ok
 import traceback
 import argparse
 
+LOG_CONNECTING = "[InstallSw.py] Connecting"
 LOG_TRANSFERRING = "[InstallSw.py] Transferring"
 LOG_INSTALLING = "[InstallSw.py] Installing"
 
@@ -43,6 +44,7 @@ if __name__ == "__main__":
         ssm_info: RemoteInfo = RemoteInfo(ut_ip, 'root', ut_pw)
         acu_info: RemoteInfo = RemoteInfo(acu_ip, 'root', '')
         ssh_helper: SSHHelper = SSHHelper(ssm_info, acu_info)
+        LOG(LOG_CONNECTING)
         ssh_helper.connect_acu(secs_timeout_per_connect=secs_timeout_per_connect,
                                total_secs_connect_timeout=total_secs_connect_timeout)
         LOG(LOG_TRANSFERRING)

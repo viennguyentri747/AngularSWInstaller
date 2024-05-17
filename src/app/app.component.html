@@ -16,10 +16,10 @@
                         (click)="onSelectInstallSourceTab('computer')">From My Computer</a>
                 </li>
 
-                <!-- <li class="nav-item">
+                <li class="nav-item">
                     <a [ngClass]="currentTab == 'gitlab' ? 'nav-link active' : 'nav-link'"
                         (click)="onSelectInstallSourceTab('gitlab')">From Gitlab Repo</a>
-                </li> -->
+                </li>
             </ul>
 
             <!-- Tab Content -->
@@ -69,7 +69,7 @@
                 </div>
 
                 <!-- `From Gitlab` content -->
-                <!-- <div [ngClass]="currentTab == 'gitlab' ? 'tab-pane fade show active' : 'tab-pane fade'" id="gitlab">
+                <div [ngClass]="currentTab == 'gitlab' ? 'tab-pane fade show active' : 'tab-pane fade'" id="gitlab">
 
                     <table class="table table-fixed-horizontal">
                         <thead>
@@ -92,45 +92,45 @@
                         </tbody>
                     </table>
                 </div>
-            </div> -->
-
-                <!-- Choose file to install -->
-                <div *ngIf="selectedInstallFile && hasUtInfos()" class="tab-content">
-                    <div class="mt-3">
-                        <strong>Choosen file for install:</strong> {{ selectedInstallFile }}<br>
-                    </div>
-                </div>
-
-                <!-- Table for UT Infos -->
-                <table class="table table-fixed-horizontal">
-                    <thead>
-                        <tr>
-                            <th id="ip-col">UT IP</th>
-                            <th id="status-col">Status</th>
-                            <th id="progress-col">Install Log</th>
-                            <th id="install-col">Install</th> <!-- New column for install button -->
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr *ngFor="let ut of utInfosByIp | keyvalue">
-                            <td id="ip-col">{{ ut.value.ip }}</td>
-                            <td id="status-col">{{ ut.value.status }}</td>
-                            <td id="progress-col"
-                                title="{{ utInstallLogsByIp[ut.value.ip] ? utInstallLogsByIp[ut.value.ip] : 'Unknown' }}">
-                                {{ utInstallLogsByIp[ut.value.ip] || 'No Data' }}
-                            </td>
-                            <td id="install-col">
-                                <div class="btn-group">
-                                    <button class="btn btn-primary"
-                                        (click)="selectedInstallFile && installFile(selectedInstallFile, ut.value.ip)"
-                                        [disabled]="!canInstall(ut.value)">Install</button>
-                                    <button class="btn btn-danger" (click)="cancelTransfer(ut.value.ip)"
-                                        [disabled]="!canCancelTransfer(ut.value)">Cancel</button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
             </div>
+
+            <!-- Choose file to install -->
+            <div *ngIf="selectedInstallFile && hasUtInfos()" class="tab-content">
+                <div class="mt-3">
+                    <strong>Choosen file for install:</strong> {{ selectedInstallFile }}<br>
+                </div>
+            </div>
+
+            <!-- Table for UT Infos -->
+            <table class="table table-fixed-horizontal">
+                <thead>
+                    <tr>
+                        <th id="ip-col">UT IP</th>
+                        <th id="status-col">Status</th>
+                        <th id="progress-col">Install Log</th>
+                        <th id="install-col">Install</th> <!-- New column for install button -->
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let ut of utInfosByIp | keyvalue">
+                        <td id="ip-col">{{ ut.value.ip }}</td>
+                        <td id="status-col">{{ ut.value.status }}</td>
+                        <td id="progress-col"
+                            title="{{ utInstallLogsByIp[ut.value.ip] ? utInstallLogsByIp[ut.value.ip] : 'Unknown' }}">
+                            {{ utInstallLogsByIp[ut.value.ip] || 'No Data' }}
+                        </td>
+                        <td id="install-col">
+                            <div class="btn-group">
+                                <button class="btn btn-primary"
+                                    (click)="selectedInstallFile && installFile(selectedInstallFile, ut.value.ip)"
+                                    [disabled]="!canInstall(ut.value)">Install</button>
+                                <button class="btn btn-danger" (click)="cancelTransfer(ut.value.ip)"
+                                    [disabled]="!canCancelTransfer(ut.value)">Cancel</button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
+</div>

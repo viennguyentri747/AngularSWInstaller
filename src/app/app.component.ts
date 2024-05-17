@@ -204,12 +204,9 @@ export class AppComponent {
 
     private async fetchUtInfos(): Promise<void> {
         this.dataService.getUtInfos().subscribe({
-            next: (resp) =>{
+            next: (resp) => {
                 this.utInfosByIp = resp;
-                // Object.values(this.utInfosByIp).forEach(element => {
-                //     console.log(element.ip + "   " + element.status)
-                // });
-            } ,
+            },
             error: (err) => {
                 this.onRequestError('Get UT Infos', err);
                 this.utInstallLogsByIp = {}

@@ -127,20 +127,17 @@ export class AppComponent {
     }
 
     private async fetchGitBuildReleaseJobs(): Promise<void> {
-        this.releaseJobs = [];
         let retryCount = 3;
         while (retryCount > 0) {
             try {
-                const jobs: Array<GitJob> = await GetGitJobsUntilCutoff(environment.gitAccessKey, this.totalExtraMonthGetJobs);
-                this.releaseJobs = jobs.filter(job => {
-                    if (job.name !== 'package_oneweb_core_apps_release') {
-                        return false;
+                this.releaseJobs = [];
+                const allJobs: Array<GitJob> = [];
+                for await (const job of GetGitJobsUntilCutoff(environment.gitAccessKey, this.totalExtraMonthGetJobs, 5, 10)) {
+                    allJobs.push(job);
+                    if (job.name === 'package_oneweb_core_apps_release' && job.ref === 'master') {
+                        this.releaseJobs.push(job);
                     }
-                    if (job.ref !== 'master') {
-                        return false;
-                    }
-                    return true;
-                });
+                }
                 break; // Exit the loop if successful
             } catch (error) {
                 console.error('Error fetching Git build release jobs:', error);

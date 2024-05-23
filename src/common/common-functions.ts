@@ -8,10 +8,11 @@ export function IsFileOkToInstall(fileName: string): boolean {
     // TODO: Check format (Ex: .iesa with version ...)
     const extensionList = ['.iesa']; // Add your desired extensions here
     const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
-    if (extensionList.includes(fileExtension)) {
-        return true;
+    if (!extensionList.includes(fileExtension)) {
+        return false;
     }
-    return false;
+
+    return true;
 }
 
 export function GetFileVersion(filename: string): string {
@@ -26,19 +27,19 @@ export function GetFileVersion(filename: string): string {
 }
 
 export function CompareVersions(versionA: string, versionB: string): number {
-  const partsA = versionA.split('.').map(Number); //numbers in version. Ex: 0.9.5 -> [0,9,5]
-  const partsB = versionB.split('.').map(Number);
+    const partsA = versionA.split('.').map(Number); //numbers in version. Ex: 0.9.5 -> [0,9,5]
+    const partsB = versionB.split('.').map(Number);
 
-  for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
-    const partA = partsA[i] || 0; //0 is default value if cannot detect
-    const partB = partsB[i] || 0;
+    for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
+        const partA = partsA[i] || 0; //0 is default value if cannot detect
+        const partB = partsB[i] || 0;
 
-    if (partA < partB) {
-      return -1;
-    } else if (partA > partB) {
-      return 1;
+        if (partA < partB) {
+            return -1;
+        } else if (partA > partB) {
+            return 1;
+        }
     }
-  }
 
-  return 0;
+    return 0;
 }

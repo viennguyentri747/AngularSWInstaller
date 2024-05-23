@@ -26,7 +26,6 @@
             <div class="tab-content" id="myTabContent">
                 <!-- `From Existing Files` content -->
                 <div [ngClass]="currentTab == 'existing' ? 'tab-pane fade show active' : 'tab-pane fade'">
-
                     <!-- Check if there are files available -->
                     <div *ngIf="uploadedFileInfos.length > 0; else noFilesTemplate">
                         <label for="existingFiles" class="form-label mt-3">Choose an existing file:</label>
@@ -34,11 +33,11 @@
                             (ngModelChange)="onSelectFileForInstall(selectedInstallFile)">
                             <option *ngFor="let file of uploadedFileInfos" [value]="file.fileName"
                                 [ngClass]="{'highlight-option': file.isLatestVersion}">
-                                {{ file.fileName }}{{ file.isLatestVersion ? ' (latest version)' : '' }}
+                                {{ file.fileName }}{{ file.jobId ? ' - Job ' + file.jobId : '' }}{{
+                                file.isLatestVersion ? ' (latest version)' : '' }}
                             </option>
                         </select>
                     </div>
-
 
                     <!-- Template to display when no files are available -->
                     <ng-template #noFilesTemplate>
@@ -70,23 +69,29 @@
 
                 <!-- `From Gitlab` content -->
                 <div [ngClass]="currentTab == 'gitlab' ? 'tab-pane fade show active' : 'tab-pane fade'" id="gitlab">
-
                     <table class="table table-fixed-horizontal">
                         <thead>
                             <tr>
                                 <th id="job-created-time-col">Created at</th>
                                 <th id="job-user-col">By User</th>
-                                <th id="download-artifact-col">Download</th>
+                                <th id="view-artifact-col">View</th>
+                                <th id="action-artifact-col">Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr *ngFor="let job of releaseJobs">
                                 <td id="job-created-time-col">{{ job.created_at }}</td>
                                 <td id="job-user-col">{{ job.user.name}}</td>
-                                <td id="download-artifact-col">
+                                <td id="view-artifact-col">
                                     <div class="btn-group">
-                                        <button class="btn btn-primary">Download</button>
+                                        <a [href]="job.web_url + '/artifacts/browse'" target="_blank">View artifacts</a>
                                     </div>
+                                </td>
+                                <td id="action-artifact-col">
+                                    <button *ngIf="isShowDownloadGitArtifactBtn(job.id)"
+                                        (click)="uploadGitJobArtifact(job.id)">Download</button>
+                                    <button *ngIf="isGitArtifactDownloaded(job.id)"
+                                        (click)="selectGitArtifactForInstall(job.id)">Select</button>
                                 </td>
                             </tr>
                         </tbody>
@@ -97,7 +102,7 @@
             <!-- Choose file to install -->
             <div *ngIf="selectedInstallFile && hasUtInfos()" class="tab-content">
                 <div class="mt-3">
-                    <strong>Choosen file for install:</strong> {{ selectedInstallFile }}<br>
+                    <strong>Choosen file for install:</strong> {{ selectedInstallFile.fileName }}<br>
                 </div>
             </div>
 

@@ -1,11 +1,11 @@
 type User = {
-    id: number;
+    id: string;
     username: string;
     name: string;
 };
 
 export class GitJob {
-    id: number;
+    id: string;
     status: string;
     stage: string;
     name: string;

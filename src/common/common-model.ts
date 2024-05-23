@@ -12,7 +12,10 @@ export enum EUtStatus {
 }
 
 export interface InstallFileInfo {
+    id: number;
+    jobId: string | null;
     fileName: string;
+    folderPath: string;
     version: string;
     isLatestVersion: boolean;
 }

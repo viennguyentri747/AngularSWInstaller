@@ -4,6 +4,11 @@ export interface FileExistenceResponse {
     exists: boolean;
 }
 
+export interface UploadFileResponse {
+    success: boolean;
+    fileInfo: InstallFileInfo | null;
+}
+
 export interface InstallFilesResponse {
     fileInfos: Array<InstallFileInfo>;
 }

@@ -1,5 +1,5 @@
 import { Component, ElementRef, ViewChild } from '@angular/core';
-import { HttpClient, HttpEvent, HttpEventType, HttpClientModule, HttpResponse } from '@angular/common/http';
+import { HttpEventType, HttpClientModule, HttpResponse } from '@angular/common/http';
 import { RouterOutlet } from '@angular/router';
 import { FormsModule } from '@angular/forms';  // Import FormsModule here
 import { DataService } from './data.service';
@@ -9,7 +9,11 @@ import { EUtStatus, UTInfo, InstallFileInfo } from '@common/common-model'
 import { IsFileOkToInstall, CalculateChecksum } from 'src/common/common-functions';
 import { GitJob } from 'src/git_helper/git_job';
 import { GetGitJobsUntilCutoff } from 'src/git_helper/git_job_fetcher';
-import { environment } from './../environments/environment';
+import { environment } from '@environment/environment';
+import { GitRepoInfo } from '@src/git_helper/git_helper';
+import { lastValueFrom } from 'rxjs';
+import { UploadFileResponse } from '@common/common-response';
+
 
 @Component({
     selector: 'app-root',
@@ -23,10 +27,13 @@ export class AppComponent {
     utInfosByIp: { [ip: string]: UTInfo } = {}; // Key: ut_ip
     utInstallLogsByIp: { [ip: string]: string } = {}; // Key: ut_ip
     uploadedFileInfos: Array<InstallFileInfo> = []
+    gitRepoInfo: GitRepoInfo = new GitRepoInfo(environment.gitAccessKey, environment.swToolGitRepoId);
+    uploadedJobIds: Array<string> = [];
+    uploadingJobIds: Array<string> = [];
     totalExtraMonthGetJobs: number = 1 //0 = get current month only
     releaseJobs: Array<GitJob> = []
     title = 'ng_sw_installer';
-    selectedInstallFile: string | null = null;  // Changed to string to hold the file name
+    selectedInstallFile: InstallFileInfo | null = null;  // Changed to string to hold the file name
     selectedUploadFile: File | null = null;
     isUploading: boolean = false;
     uploadProgress: number = 0;
@@ -34,20 +41,23 @@ export class AppComponent {
     isReadyToInstall: boolean = false;
 
     constructor(private dataService: DataService) {
-        this.fetchAllData();
-
-        setInterval(() => {
-            this.fetchAllData();
-        }, 1000);
-
-        setInterval(() => {
-            this.fetchGitBuildReleaseJobs();
-        }, 60000);
+        console.log("Constructor Called");
+        this.scheduleFetch(() => this.fetchAllData(), 1000);
+        this.scheduleFetch(() => this.fetchGitBuildReleaseJobs(), 3000);
     }
 
-    private fetchAllData(): void {
-        this.fetchAvailableFiles();
-        this.fetchUtInfos();
+    private async scheduleFetch(asyncFunctionCall: () => Promise<void>, repeatTimeMs: number): Promise<void> {
+        console.log(`Start fetching ${asyncFunctionCall.name}`);
+        await asyncFunctionCall();
+        console.log(`Complete fetching ${asyncFunctionCall.name}`);
+        setTimeout(() => this.scheduleFetch(asyncFunctionCall, repeatTimeMs), repeatTimeMs);
+    }
+
+    private async fetchAllData(): Promise<void> {
+        await Promise.all([
+            this.fetchAvailableFiles(),
+            this.fetchUtInfos()
+        ]);
     }
 
     public hasUtInfos(): boolean {
@@ -78,12 +88,11 @@ export class AppComponent {
 
         CalculateChecksum(file).then(hash => {
             this.dataService.checkFileExists(hash).subscribe(exists => {
-                if (!exists) {
-                    this.selectedUploadFile = file;
-                } else {
+                if (exists) {
                     alert('File already exists.');
-                    this.clearUpload();
                 }
+
+                this.selectedUploadFile = file;
             });
         });
     }
@@ -99,24 +108,26 @@ export class AppComponent {
                         }
                         this.uploadProgress = Math.round(100 * event.loaded / event.total);
                     } else if (event instanceof HttpResponse) {
-                        alert(`Finish upload file ${fileToUpload?.name}!`);
-                        this.onFinishUploaded(true)
+                        const uploadResponse: UploadFileResponse = event.body;
+                        const isSuccess = uploadResponse.success;
+                        alert(`Finish upload, success = ${isSuccess}`);
+                        this.onFinishUploaded(isSuccess, uploadResponse.fileInfo);
                     }
                 },
                 error: (error) => {
                     this.onRequestError('Upload files.', error);
-                    this.onFinishUploaded(false)
+                    this.onFinishUploaded(false, null);
                 }
             });
     }
 
-    private onFinishUploaded(is_success: boolean): void {
-        if (is_success) {
-            this.onSelectFileForInstall(this.selectedUploadFile?.name ?? null); // Automatically select the uploaded file
+    private onFinishUploaded(isSuccess: boolean, fileInfo: InstallFileInfo | null): void {
+        if (isSuccess && fileInfo != null) {
+            this.onSelectFileForInstall(fileInfo); // Automatically select the uploaded file
+            this.fetchAvailableFiles();
         }
 
         this.clearUpload();
-        this.fetchAvailableFiles();
     }
 
     private clearUpload(): void {
@@ -130,46 +141,59 @@ export class AppComponent {
         let retryCount = 3;
         while (retryCount > 0) {
             try {
-                this.releaseJobs = [];
+                const isFetchNew: boolean = this.releaseJobs.length == 0;
+                const tempReleaseJobs: Array<GitJob> = [];
                 const allJobs: Array<GitJob> = [];
-                for await (const job of GetGitJobsUntilCutoff(environment.gitAccessKey, this.totalExtraMonthGetJobs, 5, 10)) {
+                for await (const job of GetGitJobsUntilCutoff(this.gitRepoInfo, this.totalExtraMonthGetJobs, 5, 10)) {
                     allJobs.push(job);
                     if (job.name === 'package_oneweb_core_apps_release' && job.ref === 'master') {
-                        this.releaseJobs.push(job);
+                        tempReleaseJobs.push(job);
+                        if (isFetchNew) {
+                            // Copy immediately
+                            this.releaseJobs = tempReleaseJobs;
+                        }
                     }
                 }
+
+                if (!isFetchNew) {
+                    this.releaseJobs = tempReleaseJobs;
+                }
+
+                this.releaseJobs = tempReleaseJobs;
                 break; // Exit the loop if successful
             } catch (error) {
                 console.error('Error fetching Git build release jobs:', error);
                 retryCount--;
                 if (retryCount > 0) {
-                    console.log('Retrying now ...')
+                    console.log('Retrying fetch git jobs now ...')
                 }
             }
         }
     }
 
-    private fetchAvailableFiles(): void {
-        this.dataService.getUploadedFileInfos().subscribe({
-            next: (resp) => this.uploadedFileInfos = resp,
-            error: (err) => {
-                this.onRequestError('Get files', err);
-            }
-        });
+    private async fetchAvailableFiles(): Promise<void> {
+        try {
+            const resp = await lastValueFrom(this.dataService.getUploadedFileInfos());
+            this.uploadedFileInfos = resp;
+        } catch (err) {
+            this.onRequestError('Get files', err);
+        }
     }
 
-    public onSelectFileForInstall(installFileName: string | null): void {
-        console.log(`File for install seleted: ${installFileName}`);
-        this.selectedInstallFile = installFileName
-        this.fetchUtInfos();
+    public onSelectFileForInstall(installFileInfo: InstallFileInfo | null): void {
+        if (installFileInfo != null) {
+            console.log(`File for install seleted: ${installFileInfo.fileName}`);
+            this.selectedInstallFile = installFileInfo
+            this.fetchUtInfos();
+        }
     }
 
     public canInstall(utInfo: UTInfo) {
         return this.selectedInstallFile && (utInfo.status === EUtStatus.Idle || utInfo.status == EUtStatus.Error);
     }
 
-    public installFile(fileName: string, utIp: string): void {
-        this.dataService.installFile(fileName, utIp).subscribe(
+    public installFile(fileInfo: InstallFileInfo, utIp: string): void {
+        this.dataService.installFile(fileInfo, utIp).subscribe(
             {
                 next: (resp) => {
                     if (resp) {
@@ -181,11 +205,11 @@ export class AppComponent {
                     this.onRequestError('Install files', err);
                 },
                 complete: () => {
-                    console.log(`Complete installing file ${fileName}`);
+                    console.log(`Complete installing file ${fileInfo.fileName}`);
                     this.fetchUtInfos();
                 },
             }
-        )
+        );
     }
 
     public canCancelTransfer(utInfo: UTInfo) {
@@ -203,20 +227,58 @@ export class AppComponent {
     }
 
     private async fetchUtInfos(): Promise<void> {
-        this.dataService.getUtInfos().subscribe({
-            next: (resp) => {
-                this.utInfosByIp = resp;
-            },
-            error: (err) => {
-                this.onRequestError('Get UT Infos', err);
-                this.utInstallLogsByIp = {}
-            }
-        });
+        try {
+            const resp = await lastValueFrom(this.dataService.getUtInfos());
+            this.utInfosByIp = resp;
+        } catch (err) {
+            this.onRequestError('Get UT Infos', err);
+            this.utInstallLogsByIp = {};
+        }
     }
 
     private onRequestError(requestAction: string, error: any): void {
         console.error(`${requestAction} failed!. Error: `, error);
     }
 
+    public isShowDownloadGitArtifactBtn(jobId: string): boolean {
+        return !this.isGitArtifactDownloaded(jobId) && !this.uploadingJobIds.includes(jobId);
+    }
 
+    public isGitArtifactDownloaded(jobId: string): boolean {
+        const fileInfo: InstallFileInfo | null = this.getUploadedFileInfo(jobId);
+        return fileInfo != null;
+    }
+
+    public uploadGitJobArtifact(jobId: string) {
+        this.uploadingJobIds.push(jobId);
+        this.dataService.uploadGitJobArtifact(jobId).subscribe(
+            {
+                next: (resp) => {
+                    if (resp) {
+                        const installLog = JSON.parse(resp);
+                        console.log(installLog);
+                    }
+                },
+                error: (err) => {
+                    this.uploadingJobIds = this.uploadingJobIds.filter(id => id != jobId);
+                    this.onRequestError('Install files', err);
+                },
+                complete: () => {
+                    this.uploadingJobIds = this.uploadingJobIds.filter(id => id != jobId);
+                    this.uploadedJobIds.push(jobId);
+                },
+            }
+        );
+    }
+
+    public selectGitArtifactForInstall(jobId: string): void {
+        const fileInfo: InstallFileInfo | null = this.getUploadedFileInfo(jobId);
+        if (fileInfo) {
+            this.onSelectFileForInstall(fileInfo);
+        }
+    }
+
+    private getUploadedFileInfo(jobId: string): InstallFileInfo | null {
+        return this.uploadedFileInfos.find(file => file.jobId === jobId) || null;
+    }
 }

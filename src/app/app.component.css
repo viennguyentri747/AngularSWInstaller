@@ -111,23 +111,20 @@ table {
     /* Ensures the header is above other rows when scrolling */
 }
 
-/* Fixed width for columns can be specified here */
+/* Table for ut ip */
 .table-fixed-horizontal th#ip-col,
 .table-fixed-horizontal td#ip-col {
     width: 14%;
-    /* Example width for IP column */
 }
 
 .table-fixed-horizontal th#status-col,
 .table-fixed-horizontal td#status-col {
     width: 10%;
-    /* Example width for status column */
 }
 
 .table-fixed-horizontal th#progress-col,
 .table-fixed-horizontal td#progress-col {
     width: 60%;
-    /* Example width for progress column */
 }
 
 .table-fixed-horizontal th#install-col,
@@ -141,6 +138,26 @@ table {
     display: block;
 }
 
+/* Table for jobs */
+.table-fixed-horizontal th#job-created-time-col,
+.table-fixed-horizontal td#job-created-time-col {
+    width: 40%;
+}
+
+.table-fixed-horizontal th#job-user-col,
+.table-fixed-horizontal td#job-user-col {
+    width: 20%;
+}
+
+.table-fixed-horizontal th#view-artifact-col,
+.table-fixed-horizontal td#view-artifact-col {
+    width: 20%;
+}
+
+.table-fixed-horizontal th#action-artifact-col,
+.table-fixed-horizontal td#action-artifact-col {
+    width: 20%;
+}
 
 .btn-group {
     display: flex;
@@ -149,12 +166,14 @@ table {
 /* CSS to add spacing between buttons */
 .btn-primary {
     background-color: blue;
-    margin-right: 10px; /* Add right margin to the Install button */
+    margin-right: 10px;
+    /* Add right margin to the Install button */
 }
 
 /* If you want to ensure spacing is uniform regardless of button order */
 .btn-group button {
-    margin-right: 5px; /* Adds margin to the right of each button */
+    margin-right: 5px;
+    /* Adds margin to the right of each button */
 }
 
 .btn-danger {

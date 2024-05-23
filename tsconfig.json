@@ -5,7 +5,7 @@
         "outDir": "./dist/out-tsc",
         "strict": true,
         "noImplicitOverride": true,
-        "noPropertyAccessFromIndexSignature": true,
+        "noPropertyAccessFromIndexSignature": false,
         "noImplicitReturns": true,
         "noFallthroughCasesInSwitch": true,
         "skipLibCheck": true,
@@ -24,22 +24,35 @@
         ],
         "baseUrl": ".",
         "paths": {
-            "src/*": [
+            "@root/*": [
+                "./*"
+            ],
+            "@src/*": [
                 "src/*"
             ],
             "@common/*": [
                 "src/common/*"
             ],
-            "@config/*": [
-                "src/config/*"
+            "@configs/*": [
+                "src/configs/*"
+            ],
+            "@environment/*": [
+                "src/environments/*"
             ]
         },
     },
+    "include": [
+        "src/**/*",
+        "src/global/global.d.ts",
+        "tests/",
+        "server"
+    ],
     "angularCompilerOptions": {
         "enableI18nLegacyMessageIdFormat": false,
         "strictInjectionParameters": true,
         "strictInputAccessModifiers": true,
-        "strictTemplates": true
+        "strictTemplates": true,
+        "types": ["node"]
     },
     "ts-node": {
         "compilerOptions": {

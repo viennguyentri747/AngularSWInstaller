@@ -3,7 +3,7 @@ import { Injectable, NgZone } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CONFIG, CLIENT_CONFIG } from '@common/common_config';
 import { InstallFileInfo } from '@common/common-model';
-import { FileExistenceResponse, InstallFilesResponse, UTInfosResponse, CancelTransferResponse, UploadFileResponse } from '@common/common-response'
+import { FileExistenceResponse, InstallFilesResponse, UTInfosResponse, CancelTransferResponse, UploadFileResponse, ServerStatusResponse } from '@common/common-response'
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { HttpEvent } from '@angular/common/http';
@@ -15,6 +15,15 @@ import { timeout } from 'rxjs/operators';
 })
 export class DataService {
     constructor(private _zone: NgZone, private http: HttpClient) { }
+    public checkServerOnline(): Observable<boolean> {
+        return this.http.get<ServerStatusResponse>(CONFIG.apiPaths.checkServerOnlStatus).pipe(
+            timeout(CLIENT_CONFIG.duration.requestTimeoutMs),
+            map(response => {
+                return response.isOnline;
+            }),
+        );
+    }
+
     public getUploadedFileInfos(): Observable<InstallFileInfo[]> {
         return this.http.get<InstallFilesResponse>(CONFIG.apiPaths.getExistingFileInfos).pipe(
             timeout(CLIENT_CONFIG.duration.requestTimeoutMs),
@@ -50,7 +59,7 @@ export class DataService {
             timeout(CLIENT_CONFIG.duration.requestTimeoutMs),
             map((response: FileExistenceResponse) => {
                 console.log(response);
-                return response.exists;
+                return response.isExists;
             })
         );
     }

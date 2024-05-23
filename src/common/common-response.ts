@@ -1,11 +1,14 @@
 import { UTInfo, InstallFileInfo } from "./common-model";
 
+export interface ServerStatusResponse {
+    isOnline: boolean;
+}
 export interface FileExistenceResponse {
-    exists: boolean;
+    isExists: boolean;
 }
 
 export interface UploadFileResponse {
-    success: boolean;
+    isSuccess: boolean;
     fileInfo: InstallFileInfo | null;
 }
 

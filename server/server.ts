@@ -7,7 +7,7 @@ import { CONFIG, SERVER_CONFIG } from '@common/common_config';
 import { GetFileVersion, IsFileOkToInstall, CompareVersions } from 'src/common/common-functions';
 import { UTInfo, EUtStatus, InstallFileInfo } from '@common/common-model'
 import crypto from 'crypto'; // Include crypto module for hashing\
-import { CancelTransferResponse, FileExistenceResponse, InstallFilesResponse, UTInfosResponse, UploadFileResponse } from 'src/common/common-response';
+import { CancelTransferResponse, FileExistenceResponse, InstallFilesResponse, UTInfosResponse, UploadFileResponse, ServerStatusResponse } from 'src/common/common-response';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import { DownloadArtifact } from '@root/src/git_helper/git_artifact_downloader';
 import { GitRepoInfo } from '@root/src/git_helper/git_helper';
@@ -89,6 +89,11 @@ function reloadUploadedFiles(): void {
 }
 
 // ====================== HANDLING REQUESTS ======================
+//Check online status
+app.get(CONFIG.apiPaths.checkServerOnlStatus, (req, res) => {
+    res.json({ isOnline: true } as ServerStatusResponse);
+});
+
 // Check files exists request
 app.post(CONFIG.apiPaths.checkFileExists, (req, res) => {
     const { hash } = req.body;
@@ -102,7 +107,7 @@ app.post(CONFIG.apiPaths.checkFileExists, (req, res) => {
     }
 
     const fileExists = cachedDirectUploadHashes[hash] === true;
-    return res.json({ exists: fileExists } as FileExistenceResponse);
+    return res.json({ isExists: fileExists } as FileExistenceResponse);
 });
 
 // Multer config for file upload
@@ -130,7 +135,7 @@ app.post(CONFIG.apiPaths.uploadFile, upload.single('file'), async (req, res) => 
         cachedDirectUploadHashes[fileHash] = true;
     }
 
-    res.json({ success: fileInfo != null, fileInfo: fileInfo } as UploadFileResponse);
+    res.json({ isSuccess: fileInfo != null, fileInfo: fileInfo } as UploadFileResponse);
 });
 
 function checkCreateFileInfo(fileName: string, folderPath: string, fileVersion: string | null = null, jobId: string | null = null): InstallFileInfo | null {

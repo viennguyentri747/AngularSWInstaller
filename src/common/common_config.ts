@@ -1,5 +1,6 @@
 export const CONFIG = {
     apiPaths: {
+        checkServerOnlStatus: "/checkOnlineStatus",
         checkFileExists: "/checkFileExist",
         uploadFile: "/uploadFile",
         getExistingFileInfos: "/getExistingFileInfos",

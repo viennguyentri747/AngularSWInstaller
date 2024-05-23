@@ -39,31 +39,145 @@ export class AppComponent {
     uploadProgress: number = 0;
     currentTab: string = 'existing';
     isReadyToInstall: boolean = false;
+    isServerOnline = false;
 
     constructor(private dataService: DataService) {
         console.log("Constructor Called");
-        this.scheduleFetch(() => this.fetchAllData(), 1000);
-        this.scheduleFetch(() => this.fetchGitBuildReleaseJobs(), 3000);
+        this.scheduleAction(() => this.fetchServerOnlineStatus(), 1000);
+        this.scheduleAction(() => this.fetchAllData(), 1000);
+        this.scheduleAction(() => this.fetchGitBuildReleaseJobs(), 3000);
     }
 
-    private async scheduleFetch(asyncFunctionCall: () => Promise<void>, repeatTimeMs: number): Promise<void> {
+    private async scheduleAction(asyncFunctionCall: () => Promise<void>, repeatTimeMs: number): Promise<void> {
         console.log(`Start fetching ${asyncFunctionCall.name}`);
         await asyncFunctionCall();
         console.log(`Complete fetching ${asyncFunctionCall.name}`);
-        setTimeout(() => this.scheduleFetch(asyncFunctionCall, repeatTimeMs), repeatTimeMs);
+        setTimeout(() => this.scheduleAction(asyncFunctionCall, repeatTimeMs), repeatTimeMs);
+    }
+
+    private async fetchServerOnlineStatus(): Promise<void> {
+        try {
+            this.isServerOnline = await lastValueFrom(this.dataService.checkServerOnline());
+        }
+        catch (err) {
+            console.log("Server is not online");
+            this.isServerOnline = false;
+        }
     }
 
     private async fetchAllData(): Promise<void> {
-        await Promise.all([
-            this.fetchAvailableFiles(),
-            this.fetchUtInfos()
-        ]);
+        if (this.isServerOnline) {
+            await Promise.all([
+                this.fetchAvailableFiles(),
+                this.fetchUtInfos()
+            ]);
+        }
     }
 
-    public hasUtInfos(): boolean {
-        return Object.values(this.utInfosByIp).length > 0;
+    private async fetchAvailableFiles(): Promise<void> {
+        try {
+            const resp: InstallFileInfo[] = await lastValueFrom(this.dataService.getUploadedFileInfos());
+            this.uploadedFileInfos = resp;
+        } catch (err) {
+            this.onRequestError('Get files', err);
+        }
     }
 
+    public onSelectFileForInstall(installFileInfo: InstallFileInfo | null): void {
+        if (installFileInfo != null) {
+            console.log(`File for install seleted: ${installFileInfo.fileName}`);
+            this.selectedInstallFile = installFileInfo
+            this.fetchUtInfos();
+        }
+    }
+
+    public canInstall(utInfo: UTInfo) {
+        return this.selectedInstallFile && (utInfo.status === EUtStatus.Idle || utInfo.status == EUtStatus.Error);
+    }
+
+    public installFile(fileInfo: InstallFileInfo, utIp: string): void {
+        this.dataService.installFile(fileInfo, utIp).subscribe(
+            {
+                next: (resp) => {
+                    if (resp) {
+                        const installLog = JSON.parse(resp);
+                        this.utInstallLogsByIp[utIp] = installLog;
+                    }
+                },
+                error: (err) => {
+                    this.onRequestError('Install files', err);
+                },
+                complete: () => {
+                    console.log(`Complete installing file ${fileInfo.fileName}`);
+                    this.fetchUtInfos();
+                },
+            }
+        );
+    }
+
+    private async fetchUtInfos(): Promise<void> {
+        try {
+            const resp = await lastValueFrom(this.dataService.getUtInfos());
+            this.utInfosByIp = resp;
+        } catch (err) {
+            this.onRequestError('Get UT Infos', err);
+            this.utInstallLogsByIp = {};
+        }
+    }
+
+    public canCancelTransfer(utInfo: UTInfo) {
+        return (utInfo.status === EUtStatus.Connecting || utInfo.status === EUtStatus.Transferring);
+    }
+
+    public cancelTransfer(utIp: string): void {
+        this.dataService.cancelTransfer(utIp).subscribe(
+            {
+                error: (err) => {
+                    this.onRequestError('Cancel transfer', err);
+                }
+            }
+        )
+    }
+
+    private async fetchGitBuildReleaseJobs(): Promise<void> {
+        let retryCount = 3;
+        while (retryCount > 0) {
+            try {
+                const isFetchNew: boolean = this.releaseJobs.length == 0;
+                const tempReleaseJobs: Array<GitJob> = [];
+                const allJobs: Array<GitJob> = [];
+                for await (const job of GetGitJobsUntilCutoff(this.gitRepoInfo, this.totalExtraMonthGetJobs, 5, 10)) {
+                    allJobs.push(job);
+                    if (job.name === 'package_oneweb_core_apps_release' && job.ref === 'master') {
+                        tempReleaseJobs.push(job);
+                        if (isFetchNew) {
+                            // Copy immediately
+                            this.releaseJobs = tempReleaseJobs;
+                        }
+                    }
+                }
+
+                if (!isFetchNew) {
+                    this.releaseJobs = tempReleaseJobs;
+                }
+
+                this.releaseJobs = tempReleaseJobs;
+                break; // Exit the loop if successful
+            } catch (error) {
+                console.error('Error fetching Git build release jobs:', error);
+                retryCount--;
+                if (retryCount > 0) {
+                    console.log('Retrying fetch git jobs now ...')
+                }
+            }
+        }
+    }
+
+    private onRequestError(requestAction: string, error: any): void {
+        console.error(`${requestAction} failed!. Error: `, error);
+    }
+
+    // ====================== PUBLIC FUNCTIONS FOR HTML ======================
     public onSelectInstallSourceTab(tabId: string): void {
         this.currentTab = tabId;
         this.unSetSelected();
@@ -109,7 +223,7 @@ export class AppComponent {
                         this.uploadProgress = Math.round(100 * event.loaded / event.total);
                     } else if (event instanceof HttpResponse) {
                         const uploadResponse: UploadFileResponse = event.body;
-                        const isSuccess = uploadResponse.success;
+                        const isSuccess = uploadResponse.isSuccess;
                         alert(`Finish upload, success = ${isSuccess}`);
                         this.onFinishUploaded(isSuccess, uploadResponse.fileInfo);
                     }
@@ -135,109 +249,6 @@ export class AppComponent {
         this.selectedUploadFile = null;
         this.uploadProgress = 0;
         this.fileUploadInputRef.nativeElement.value = "";
-    }
-
-    private async fetchGitBuildReleaseJobs(): Promise<void> {
-        let retryCount = 3;
-        while (retryCount > 0) {
-            try {
-                const isFetchNew: boolean = this.releaseJobs.length == 0;
-                const tempReleaseJobs: Array<GitJob> = [];
-                const allJobs: Array<GitJob> = [];
-                for await (const job of GetGitJobsUntilCutoff(this.gitRepoInfo, this.totalExtraMonthGetJobs, 5, 10)) {
-                    allJobs.push(job);
-                    if (job.name === 'package_oneweb_core_apps_release' && job.ref === 'master') {
-                        tempReleaseJobs.push(job);
-                        if (isFetchNew) {
-                            // Copy immediately
-                            this.releaseJobs = tempReleaseJobs;
-                        }
-                    }
-                }
-
-                if (!isFetchNew) {
-                    this.releaseJobs = tempReleaseJobs;
-                }
-
-                this.releaseJobs = tempReleaseJobs;
-                break; // Exit the loop if successful
-            } catch (error) {
-                console.error('Error fetching Git build release jobs:', error);
-                retryCount--;
-                if (retryCount > 0) {
-                    console.log('Retrying fetch git jobs now ...')
-                }
-            }
-        }
-    }
-
-    private async fetchAvailableFiles(): Promise<void> {
-        try {
-            const resp = await lastValueFrom(this.dataService.getUploadedFileInfos());
-            this.uploadedFileInfos = resp;
-        } catch (err) {
-            this.onRequestError('Get files', err);
-        }
-    }
-
-    public onSelectFileForInstall(installFileInfo: InstallFileInfo | null): void {
-        if (installFileInfo != null) {
-            console.log(`File for install seleted: ${installFileInfo.fileName}`);
-            this.selectedInstallFile = installFileInfo
-            this.fetchUtInfos();
-        }
-    }
-
-    public canInstall(utInfo: UTInfo) {
-        return this.selectedInstallFile && (utInfo.status === EUtStatus.Idle || utInfo.status == EUtStatus.Error);
-    }
-
-    public installFile(fileInfo: InstallFileInfo, utIp: string): void {
-        this.dataService.installFile(fileInfo, utIp).subscribe(
-            {
-                next: (resp) => {
-                    if (resp) {
-                        const installLog = JSON.parse(resp);
-                        this.utInstallLogsByIp[utIp] = installLog;
-                    }
-                },
-                error: (err) => {
-                    this.onRequestError('Install files', err);
-                },
-                complete: () => {
-                    console.log(`Complete installing file ${fileInfo.fileName}`);
-                    this.fetchUtInfos();
-                },
-            }
-        );
-    }
-
-    public canCancelTransfer(utInfo: UTInfo) {
-        return (utInfo.status === EUtStatus.Connecting || utInfo.status === EUtStatus.Transferring);
-    }
-
-    public cancelTransfer(utIp: string): void {
-        this.dataService.cancelTransfer(utIp).subscribe(
-            {
-                error: (err) => {
-                    this.onRequestError('Cancel transfer', err);
-                }
-            }
-        )
-    }
-
-    private async fetchUtInfos(): Promise<void> {
-        try {
-            const resp = await lastValueFrom(this.dataService.getUtInfos());
-            this.utInfosByIp = resp;
-        } catch (err) {
-            this.onRequestError('Get UT Infos', err);
-            this.utInstallLogsByIp = {};
-        }
-    }
-
-    private onRequestError(requestAction: string, error: any): void {
-        console.error(`${requestAction} failed!. Error: `, error);
     }
 
     public isShowDownloadGitArtifactBtn(jobId: string): boolean {
@@ -280,5 +291,9 @@ export class AppComponent {
 
     private getUploadedFileInfo(jobId: string): InstallFileInfo | null {
         return this.uploadedFileInfos.find(file => file.jobId === jobId) || null;
+    }
+
+    public hasUtInfos(): boolean {
+        return Object.values(this.utInfosByIp).length > 0;
     }
 }

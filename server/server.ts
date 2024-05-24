@@ -97,13 +97,9 @@ app.get(CONFIG.apiPaths.checkServerOnlStatus, (req, res) => {
 // Check files exists request
 app.post(CONFIG.apiPaths.checkFileExists, (req, res) => {
     const { hash } = req.body;
-
-    //Sanity check
+    //Sanity check for hash format
     if (typeof hash !== 'string' || !/^[a-f0-9]{64}$/i.test(hash)) {
-        // Usage:
-        if (typeof hash !== 'string' || !/^[a-f0-9]{64}$/i.test(hash)) {
-            return sendErrRequestResponse(res, SERVER_CONFIG.statusCodes.badRequest, "Invalid hash format");
-        }
+        return sendErrRequestResponse(res, SERVER_CONFIG.statusCodes.badRequest, "Invalid hash format");
     }
 
     const fileExists = cachedDirectUploadHashes[hash] === true;

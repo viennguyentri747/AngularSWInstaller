@@ -158,10 +158,6 @@ export class AppComponent {
                     }
                 }
 
-                if (!isFetchNew) {
-                    this.releaseJobs = tempReleaseJobs;
-                }
-
                 this.releaseJobs = tempReleaseJobs;
                 break; // Exit the loop if successful
             } catch (error) {

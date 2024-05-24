@@ -39,40 +39,52 @@ export class AppComponent {
     uploadProgress: number = 0;
     currentTab: string = 'existing';
     isReadyToInstall: boolean = false;
-    isServerOnline = false;
+    isServerOnline: boolean = false;
 
     constructor(private dataService: DataService) {
         console.log("Constructor Called");
-        this.scheduleAction(() => this.fetchServerOnlineStatus(), 1000);
-        this.scheduleAction(() => this.fetchAllData(), 1000);
-        this.scheduleAction(() => this.fetchGitBuildReleaseJobs(), 3000);
+        this.scheduleAction(this.fetchServerOnlineStatus.bind(this), 1500, 1000);
+        this.scheduleAction(this.fetchCommonDatas.bind(this), 1500, 1000);
+        this.scheduleAction(this.fetchGitBuildReleaseJobs.bind(this), 3000, 1000);
     }
 
-    private async scheduleAction(asyncFunctionCall: () => Promise<void>, repeatTimeMs: number): Promise<void> {
+    /**
+     * Schedules an asynchronous function call to be executed repeatedly at specified intervals.
+     * @param asyncFunctionCall - The async function to fetch some kind of data, it return boolean if fetch from server success (false if there is an error).
+     */
+    private async scheduleAction(asyncFunctionCall: () => Promise<boolean>, intervalMsOnSuccess: number, intervalMsOnFail: number = intervalMsOnSuccess): Promise<void> {
+
         console.log(`Start fetching ${asyncFunctionCall.name}`);
-        await asyncFunctionCall();
-        console.log(`Complete fetching ${asyncFunctionCall.name}`);
-        setTimeout(() => this.scheduleAction(asyncFunctionCall, repeatTimeMs), repeatTimeMs);
+        const isSuccess: boolean = await asyncFunctionCall();
+        console.log(`Complete fetching ${asyncFunctionCall.name}, success = ${isSuccess}`);
+        const repeatIntervalMs = isSuccess ? intervalMsOnSuccess : intervalMsOnFail;
+        setTimeout(() => this.scheduleAction(asyncFunctionCall, intervalMsOnSuccess, intervalMsOnFail), repeatIntervalMs);
     }
 
-    private async fetchServerOnlineStatus(): Promise<void> {
+    private async fetchServerOnlineStatus(): Promise<boolean> {
         try {
             this.isServerOnline = await lastValueFrom(this.dataService.checkServerOnline());
+            return true;
         }
         catch (err) {
             this.isServerOnline = false;
+            return false;
         } finally {
             console.log(`Server is online = ${this.isServerOnline}`)
         }
     }
 
-    private async fetchAllData(): Promise<void> {
-        if (this.isServerOnline) {
-            await Promise.all([
-                this.fetchAvailableFiles(),
-                this.fetchUtInfos()
-            ]);
+    private async fetchCommonDatas(): Promise<boolean> {
+        if (!this.isServerOnline) {
+            return false;
         }
+
+        await Promise.all([
+            this.fetchAvailableFiles(),
+            this.fetchUtInfos()
+        ]);
+
+        return true;
     }
 
     private async fetchAvailableFiles(): Promise<void> {
@@ -140,9 +152,9 @@ export class AppComponent {
         )
     }
 
-    private async fetchGitBuildReleaseJobs(): Promise<void> {
+    private async fetchGitBuildReleaseJobs(): Promise<boolean> {
         let retryCount = 3;
-        while (retryCount > 0) {
+        while (this.isServerOnline && retryCount > 0) {
             try {
                 const isFetchNew: boolean = this.releaseJobs.length == 0;
                 const tempReleaseJobs: Array<GitJob> = [];
@@ -159,7 +171,7 @@ export class AppComponent {
                 }
 
                 this.releaseJobs = tempReleaseJobs;
-                break; // Exit the loop if successful
+                return true
             } catch (error) {
                 console.error('Error fetching Git build release jobs:', error);
                 retryCount--;
@@ -168,6 +180,8 @@ export class AppComponent {
                 }
             }
         }
+
+        return false;
     }
 
     private onRequestError(requestAction: string, error: any): void {

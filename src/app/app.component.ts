@@ -60,8 +60,9 @@ export class AppComponent {
             this.isServerOnline = await lastValueFrom(this.dataService.checkServerOnline());
         }
         catch (err) {
-            console.log("Server is not online");
             this.isServerOnline = false;
+        } finally {
+            console.log(`Server is online = ${this.isServerOnline}`)
         }
     }
 

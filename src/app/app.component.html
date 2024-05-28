@@ -72,6 +72,7 @@
                     <table class="table table-fixed-horizontal">
                         <thead>
                             <tr>
+                                <th id="job-id-col">JobId</th>
                                 <th id="job-created-time-col">Created at</th>
                                 <th id="job-user-col">By User</th>
                                 <th id="view-artifact-col">View</th>
@@ -80,6 +81,7 @@
                         </thead>
                         <tbody>
                             <tr *ngFor="let job of releaseJobs">
+                                <td id="job-id-col">{{ job.id }}</td>
                                 <td id="job-created-time-col">{{ job.created_at }}</td>
                                 <td id="job-user-col">{{ job.user.name}}</td>
                                 <td id="view-artifact-col">
@@ -90,8 +92,9 @@
                                 <td id="action-artifact-col">
                                     <button *ngIf="isShowDownloadGitArtifactBtn(job.id)"
                                         (click)="uploadGitJobArtifact(job.id)">Download</button>
-                                    <button *ngIf="isGitArtifactDownloaded(job.id)"
+                                    <button *ngIf="isShowSelectDownloadedJobBtn(job.id)"
                                         (click)="selectGitArtifactForInstall(job.id)">Select</button>
+                                    <span *ngIf="isGitJobSelected(job.id)" class="selected-indicator">Selected</span>
                                 </td>
                             </tr>
                         </tbody>

@@ -53,7 +53,6 @@ export class AppComponent {
      * @param asyncFunctionCall - The async function to fetch some kind of data, it return boolean if fetch from server success (false if there is an error).
      */
     private async scheduleAction(asyncFunctionCall: () => Promise<boolean>, intervalMsOnSuccess: number, intervalMsOnFail: number = intervalMsOnSuccess): Promise<void> {
-
         console.log(`Start fetching ${asyncFunctionCall.name}`);
         const isSuccess: boolean = await asyncFunctionCall();
         console.log(`Complete fetching ${asyncFunctionCall.name}, success = ${isSuccess}`);
@@ -263,10 +262,18 @@ export class AppComponent {
     }
 
     public isShowDownloadGitArtifactBtn(jobId: string): boolean {
-        return !this.isGitArtifactDownloaded(jobId) && !this.uploadingJobIds.includes(jobId);
+        return this.isServerOnline && !this.isGitArtifactDownloaded(jobId) && !this.uploadingJobIds.includes(jobId);
     }
 
-    public isGitArtifactDownloaded(jobId: string): boolean {
+    public isShowSelectDownloadedJobBtn(jobId: string): boolean {
+        return !this.isGitJobSelected(jobId) && this.isGitArtifactDownloaded(jobId);
+    }
+
+    public isGitJobSelected(jobId: string): boolean {
+        return this.selectedInstallFile != null && this.selectedInstallFile.jobId === jobId;
+    }
+
+    private isGitArtifactDownloaded(jobId: string): boolean {
         const fileInfo: InstallFileInfo | null = this.getUploadedFileInfo(jobId);
         return fileInfo != null;
     }

@@ -31,7 +31,7 @@ export class GitJob {
     tag_list: string[];
 
     constructor(data: any) {
-        this.id = data.id;
+        this.id = String(data.id);
         this.status = data.status;
         this.stage = data.stage;
         this.name = data.name;

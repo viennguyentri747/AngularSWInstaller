@@ -3,6 +3,7 @@ import multer from 'multer';
 import bodyParser from 'body-parser';
 import path from 'path';
 import fs from 'fs';
+import { readdirSync } from 'fs';
 import { CONFIG, SERVER_CONFIG } from '@common/common_config';
 import { GetFileVersion, IsFileOkToInstall, CompareVersions } from 'src/common/common-functions';
 import { UTInfo, EUtStatus, InstallFileInfo } from '@common/common-model'
@@ -148,6 +149,8 @@ function checkCreateFileInfo(fileName: string, folderPath: string, fileVersion: 
         version: fileVersion,
         isLatestVersion: false
     };
+
+    console.log('Create file info', fileInfo);
     nextFileId += 1;
     fileInfos.push(fileInfo);
     fileInfos.sort((a, b) => CompareVersions(b.version, a.version));
@@ -279,21 +282,23 @@ app.get(CONFIG.apiPaths.uploadArtifactFromRepo, (req, res) => {
             (progressPercent: string) => {
                 const progressStr: string = `Download progress: ${progressPercent}%`;
                 console.log(progressStr);
-                sendEventResponse(res, progressStr, CONFIG.serverMessageVars.progressEvent);
-            }, (isSuccess: boolean, message: string, outputPath: string) => {
+                sendEventResponse(res, progressStr);
+            }, (isSuccess: boolean, message: string, outputFolderPath: string) => {
                 if (isSuccess) {
-                    const fileNameWithExtension = path.basename(outputPath);
-                    checkCreateFileInfo(fileNameWithExtension, outputDir, null, jobId);
-                }
-                const totalTimeStr = getTotalTimeStr(startTime);
-                sendEventResponse(res, `Download Success = ${isSuccess}, Msg = ${message}!.${totalTimeStr}`, CONFIG.serverMessageVars.completeEvent);
-                return;
+                    const fileNames: string[] = readdirSync(outputFolderPath);
+                    for (const fileName of fileNames) {
+                        checkCreateFileInfo(fileName, outputDir, null, jobId);
+                    }
+                    const totalTimeStr = getTotalTimeStr(startTime);
+                    sendEventResponse(res, `Download Success = ${isSuccess}, Msg = ${message}!.${totalTimeStr}`, CONFIG.serverMessageVars.completeEvent);
+                };
             });
     } catch (error) {
         console.log(`Caught unexpected error ${error}`);
         sendErrRequestResponse(res, SERVER_CONFIG.statusCodes.internalServerError, "Invalid hash format");
     }
 });
+
 
 app.get('*', (req: express.Request, res: express.Response) => {
     res.sendFile(path.join(__dirname, 'src/index.html'));

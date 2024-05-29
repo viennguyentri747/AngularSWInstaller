@@ -76,6 +76,7 @@
                                 <th id="job-created-time-col">Created at</th>
                                 <th id="job-user-col">By User</th>
                                 <th id="view-artifact-col">View</th>
+                                <th id="job-upload-log-col">Job Log</th>
                                 <th id="action-artifact-col">Action</th>
                             </tr>
                         </thead>
@@ -89,12 +90,16 @@
                                         <a [href]="job.web_url + '/artifacts/browse'" target="_blank">View artifacts</a>
                                     </div>
                                 </td>
+                                <td id="job-upload-log-col"
+                                    [title]="uploadedJobLogByJobId[job.id] ? uploadedJobLogByJobId[job.id] : ''">
+                                    {{uploadedJobLogByJobId[job.id] ? uploadedJobLogByJobId[job.id] : ''}}
+                                </td>
                                 <td id="action-artifact-col">
                                     <button *ngIf="isShowDownloadGitArtifactBtn(job.id)"
                                         (click)="uploadGitJobArtifact(job.id)">Download</button>
                                     <button *ngIf="isShowSelectDownloadedJobBtn(job.id)"
                                         (click)="selectGitArtifactForInstall(job.id)">Select</button>
-                                    <span *ngIf="isGitJobSelected(job.id)" class="selected-indicator">Selected</span>
+                                    <span *ngIf="isGitJobSelected(job.id)">Selected</span>
                                 </td>
                             </tr>
                         </tbody>

@@ -146,12 +146,17 @@ table {
 
 .table-fixed-horizontal th#job-created-time-col,
 .table-fixed-horizontal td#job-created-time-col {
-    width: 30%;
+    width: 25%;
 }
 
 .table-fixed-horizontal th#job-user-col,
 .table-fixed-horizontal td#job-user-col {
-    width: 18%;
+    width: 15%;
+}
+
+.table-fixed-horizontal th#job-upload-log-col,
+.table-fixed-horizontal td#job-upload-log-col {
+    width: 20%;
 }
 
 .table-fixed-horizontal th#view-artifact-col,
@@ -161,7 +166,7 @@ table {
 
 .table-fixed-horizontal th#action-artifact-col,
 .table-fixed-horizontal td#action-artifact-col {
-    width: 20%;
+    width: 10%;
 }
 
 .btn-group {

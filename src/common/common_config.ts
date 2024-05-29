@@ -17,7 +17,7 @@ export const CONFIG = {
     },
     serverMessageVars: {
         errorEvent: "error",
-        completeEvent: "complete"
+        completeEvent: "complete",
     },
 
 };

@@ -146,6 +146,14 @@ export class DataService {
                 });
             });
 
+            eventSource.addEventListener(CONFIG.serverMessageVars.errorEvent, (event) => {
+                this._zone.run(() => {
+                    const message = event.data
+                    observer.error(message);
+                    eventSource.close();
+                });
+            })
+
             eventSource.onerror = error => {
                 this._zone.run(() => {
                     observer.error(error);

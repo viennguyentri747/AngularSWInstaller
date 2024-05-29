@@ -28,8 +28,9 @@ export class AppComponent {
     utInstallLogsByIp: { [ip: string]: string } = {}; // Key: ut_ip
     uploadedFileInfos: Array<InstallFileInfo> = []
     gitRepoInfo: GitRepoInfo = new GitRepoInfo(environment.gitAccessKey, environment.swToolGitRepoId);
-    uploadedJobIds: Array<string> = [];
     uploadingJobIds: Array<string> = [];
+    uploadedJobIds: Array<string> = [];
+    uploadedJobLogByJobId: { [id: string]: string } = {};
     totalExtraMonthGetJobs: number = 1 //0 = get current month only
     releaseJobs: Array<GitJob> = []
     title = 'ng_sw_installer';
@@ -262,7 +263,7 @@ export class AppComponent {
     }
 
     public isShowDownloadGitArtifactBtn(jobId: string): boolean {
-        return this.isServerOnline && !this.isGitArtifactDownloaded(jobId) && !this.uploadingJobIds.includes(jobId);
+        return this.isServerOnline && !this.isGitArtifactDownloaded(jobId) && !this.isUploadingJobArtifact(jobId) && !(this.uploadedJobIds.hasOwnProperty(jobId));
     }
 
     public isShowSelectDownloadedJobBtn(jobId: string): boolean {
@@ -271,6 +272,10 @@ export class AppComponent {
 
     public isGitJobSelected(jobId: string): boolean {
         return this.selectedInstallFile != null && this.selectedInstallFile.jobId === jobId;
+    }
+
+    public isUploadingJobArtifact(jobId: string): boolean {
+        return this.uploadingJobIds.includes(jobId)
     }
 
     private isGitArtifactDownloaded(jobId: string): boolean {
@@ -284,17 +289,20 @@ export class AppComponent {
             {
                 next: (resp) => {
                     if (resp) {
-                        const installLog = JSON.parse(resp);
-                        console.log(installLog);
+                        const uploadLog = JSON.parse(resp);
+                        this.uploadedJobLogByJobId[jobId] = uploadLog;
                     }
                 },
                 error: (err) => {
+                    this.uploadedJobLogByJobId[jobId] = `Error: ${err}`;
                     this.uploadingJobIds = this.uploadingJobIds.filter(id => id != jobId);
-                    this.onRequestError('Install files', err);
+                    this.onRequestError('Upload artifact', err);
                 },
                 complete: () => {
-                    this.uploadingJobIds = this.uploadingJobIds.filter(id => id != jobId);
+                    const completeLog = `Upload artifact of job with JobId = ${jobId} Complete!`;
+                    this.uploadedJobLogByJobId[jobId] = completeLog;
                     this.uploadedJobIds.push(jobId);
+                    this.uploadingJobIds = this.uploadingJobIds.filter(id => id != jobId);
                 },
             }
         );

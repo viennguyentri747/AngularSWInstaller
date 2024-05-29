@@ -284,14 +284,17 @@ app.get(CONFIG.apiPaths.uploadArtifactFromRepo, (req, res) => {
                 console.log(progressStr);
                 sendEventResponse(res, progressStr);
             }, (isSuccess: boolean, message: string, outputFolderPath: string) => {
+                const totalTimeStr = getTotalTimeStr(startTime);
+                console.log(`Is Success = ${isSuccess}`);
                 if (isSuccess) {
                     const fileNames: string[] = readdirSync(outputFolderPath);
                     for (const fileName of fileNames) {
                         checkCreateFileInfo(fileName, outputDir, null, jobId);
                     }
-                    const totalTimeStr = getTotalTimeStr(startTime);
-                    sendEventResponse(res, `Download Success = ${isSuccess}, Msg = ${message}!.${totalTimeStr}`, CONFIG.serverMessageVars.completeEvent);
-                };
+                    sendEventResponse(res, `Download Success, Msg = ${message}!.${totalTimeStr}`, CONFIG.serverMessageVars.completeEvent);
+                } else {
+                    sendEventResponse(res, `Download Failed: ${message}`, CONFIG.serverMessageVars.errorEvent);
+                }
             });
     } catch (error) {
         console.log(`Caught unexpected error ${error}`);

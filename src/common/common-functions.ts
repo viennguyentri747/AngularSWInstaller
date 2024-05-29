@@ -5,14 +5,8 @@ export async function CalculateChecksum(file: File): Promise<string> {
 }
 
 export function IsFileOkToInstall(fileName: string): boolean {
-    // TODO: Check format (Ex: .iesa with version ...)
-    const extensionList = ['.iesa']; // Add your desired extensions here
-    const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
-    if (!extensionList.includes(fileExtension)) {
-        return false;
-    }
-
-    return true;
+    const regex = /^ow_core_apps-release-master-\d+\.\d+\.\d+\.\d+\.iesa$/;
+    return regex.test(fileName);
 }
 
 export function GetFileVersion(filename: string): string {

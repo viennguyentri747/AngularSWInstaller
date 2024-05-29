@@ -19,7 +19,7 @@ export async function DownloadArtifact(
     jobId: string,
     targetFolderLocation: string,
     callBackProgressUpdate: (progressPercent: string) => void,
-    onFinish: (isSuccess: boolean, message: string, outputPath: string) => void
+    onFinish: (isSuccess: boolean, message: string, outputFolderPath: string) => void
 ) {
     const url = `${GITLAB_URL}/api/v4/projects/${gitInfo.projectId}/jobs/${jobId}/artifacts`;
     console.log(url)
@@ -35,8 +35,8 @@ export async function DownloadArtifact(
         const totalSize: number = Number(response.headers['content-length']);
         let downloadedSize: number = 0;
         const fileName: string = `${jobId}`
-        const zipFilePath: string = path.join(SERVER_CONFIG.storageDirs.gitArtifactDir, `${fileName}_tmp.zip`);
-        const fileStream: fs.WriteStream = fs.createWriteStream(zipFilePath);
+        const zipFolderPath: string = path.join(SERVER_CONFIG.storageDirs.gitArtifactDir, `${fileName}_tmp.zip`);
+        const fileStream: fs.WriteStream = fs.createWriteStream(zipFolderPath);
 
         response.data.on('data', (chunk: Buffer) => {
             downloadedSize += chunk.length;
@@ -47,22 +47,23 @@ export async function DownloadArtifact(
 
         response.data.on('end', () => {
             fileStream.end();
-            const destFilePath: string = path.join(targetFolderLocation, `${fileName}`);
-            unpackZipFile(zipFilePath, destFilePath).then(() => {
-                console.log(`Removing ${zipFilePath}`);
+            const destFolderPath: string = path.join(targetFolderLocation, `${fileName}`);
+            unpackZipFile(zipFolderPath, destFolderPath).then(() => {
+                console.log(`Removing ${zipFolderPath}`);
                 //Remove zip file
-                fs.unlink(zipFilePath, (err) => {
+                fs.unlink(zipFolderPath, (err) => {
                     if (err) console.error('Error removing zip file:', err);
                 });
-                console.log(`Artifact downloaded successfully. Unpack at ${destFilePath}`);
-                onFinish(true, "Download sucess!", destFilePath);
+                console.log(`Artifact downloaded successfully. Unpack at ${destFolderPath}`);
+                onFinish(true, "Ok.", destFolderPath);
             }).catch((err) => {
                 console.error('Error unpacking zip file:', err);
+                onFinish(false, `Error = ${err}.`, destFolderPath);
             });
         });
 
         response.data.on('error', (err: Error) => {
-            fs.unlinkSync(zipFilePath); //delete the temp file
+            fs.unlinkSync(zipFolderPath); //delete the temp file
             onFinish(false, `Download failed: ${err.message}`, "");
         });
     }).catch(err => {

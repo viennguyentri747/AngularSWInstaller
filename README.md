@@ -33,5 +33,5 @@ Run config sync: `ts-node dev_tools/config_sync.ts`
 Copy code to server (dev only): `scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ~/workspace/ng_sw_installer adc@10.1.26.71:~/`
 
 ### Environment
-Generate environments: `ng generate environments`
+Generate environments config files (`environment.ts` and `environment.interface.ts`): `ng generate environments`
 cp src/environments/environment.ts.template src/environments/environment.ts

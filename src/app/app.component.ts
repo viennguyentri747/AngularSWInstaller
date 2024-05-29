@@ -30,7 +30,7 @@ export class AppComponent {
     gitRepoInfo: GitRepoInfo = new GitRepoInfo(environment.gitAccessKey, environment.swToolGitRepoId);
     uploadingJobIds: Array<string> = [];
     uploadedJobIds: Array<string> = [];
-    uploadedJobLogByJobId: { [id: string]: string } = {};
+    uploadedJobLogByJobId: { [id: string]: { message: string, isError: boolean } } = {};
     totalExtraMonthGetJobs: number = 1 //0 = get current month only
     releaseJobs: Array<GitJob> = []
     title = 'ng_sw_installer';
@@ -263,7 +263,7 @@ export class AppComponent {
     }
 
     public isShowDownloadGitArtifactBtn(jobId: string): boolean {
-        return this.isServerOnline && !this.isGitArtifactDownloaded(jobId) && !this.isUploadingJobArtifact(jobId) && !(this.uploadedJobIds.hasOwnProperty(jobId));
+        return this.isServerOnline && !this.isGitArtifactDownloaded(jobId) && !this.isUploadingJobArtifact(jobId) && !this.isJobArtifactUploaded(jobId);
     }
 
     public isShowSelectDownloadedJobBtn(jobId: string): boolean {
@@ -274,8 +274,12 @@ export class AppComponent {
         return this.selectedInstallFile != null && this.selectedInstallFile.jobId === jobId;
     }
 
-    public isUploadingJobArtifact(jobId: string): boolean {
+    private isUploadingJobArtifact(jobId: string): boolean {
         return this.uploadingJobIds.includes(jobId)
+    }
+
+    private isJobArtifactUploaded(jobId: string): boolean {
+        return this.uploadedJobIds.hasOwnProperty(jobId);
     }
 
     private isGitArtifactDownloaded(jobId: string): boolean {
@@ -294,13 +298,12 @@ export class AppComponent {
                     }
                 },
                 error: (err) => {
-                    this.uploadedJobLogByJobId[jobId] = `Error: ${err}`;
-                    this.uploadingJobIds = this.uploadingJobIds.filter(id => id != jobId);
+                    this.uploadedJobLogByJobId[jobId] = { message: `Error: ${err}`, isError: true };
                     this.onRequestError('Upload artifact', err);
+                    this.uploadingJobIds = this.uploadingJobIds.filter(id => id != jobId);
                 },
                 complete: () => {
-                    const completeLog = `Upload artifact of job with JobId = ${jobId} Complete!`;
-                    this.uploadedJobLogByJobId[jobId] = completeLog;
+                    this.uploadedJobLogByJobId[jobId] = { message: `Upload artifact of job with JobId = ${jobId} Complete!`, isError: false };
                     this.uploadedJobIds.push(jobId);
                     this.uploadingJobIds = this.uploadingJobIds.filter(id => id != jobId);
                 },

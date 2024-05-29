@@ -191,3 +191,7 @@ table {
     color: white;
     border-color: orangered;
 }
+
+.error-class {
+    color: red;  /* or any other color you prefer for error messages */
+}
